@@ -16,3 +16,13 @@ window.addEventListener('DOMContentLoaded', () => {
     replaceText(`${type}-version`, process.versions[type])
   }
 })
+
+
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  submitText: (text, xxx, yyy) => ipcRenderer.invoke('robot-action', text, xxx, yyy)
+  // stopText: () => ipcRenderer.invoke('stop-action')
+
+});

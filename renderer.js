@@ -1,7 +1,33 @@
-/**
- * This file is loaded via the <script> tag in the index.html file and will
- * be executed in the renderer process for that window. No Node.js APIs are
- * available in this process because `nodeIntegration` is turned off and
- * `contextIsolation` is turned on. Use the contextBridge API in `preload.js`
- * to expose Node.js functionality from the main process.
- */
+// renderer.js
+
+// renderer.js
+
+// 获取从主进程暴露的 robot 模块
+const { remote } = require('electron');
+const robot = remote.getGlobal('robot');
+
+async function submitText() {
+    var inputText = parseInt(document.getElementById("inputText").value);
+    var xxx = parseInt(document.getElementById("xxx").value);
+    var yyy = parseInt(document.getElementById("yyy").value);
+    console.log(inputText, 'Input times');
+
+    try {
+        const response = await electronAPI.submitText(inputText, xxx, yyy);
+        console.log('Operation completed:这是什么', response);
+    } catch (err) {
+        console.error('Failed to execute robot actions:', err);
+    }
+
+
+}
+
+
+// async function stopMouseOperation() {
+//     try {
+//         const response = await electronAPI.stopText();
+//         console.log('Operation stopped:', response);
+//     } catch (err) {
+//         console.error('Failed to stop robot actions:', err);
+//     }
+// }
