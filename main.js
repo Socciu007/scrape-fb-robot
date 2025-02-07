@@ -1,25 +1,12 @@
 // Modules to control application life and create native browser window
-const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, clipboard } = require('electron')
 const path = require('node:path')
 const robot = require('robotjs');
+const axios = require('axios');
 const { fork } = require('child_process');
 let robotProcess = null;  // 存储子进程的引用
 
-const ACCOUNT = {
-  'shanghaifanyuan613@gmail.com': 'Fago1618@',
-  'fanyuanmy@gmail.com': 'Damonbnh_123',
-  'shanghaifangyuanvn@gmail.com': 'Damonbnh_8',
-  'fanyuanshanghai@gmail.com': 'Damonbnh_8', // Password incorrect
-  'darthub88@gmail.com': 'Damonbnh_123',
-  'eternityy188@gmail.com': 'Damonbnh_123', // Change password
-  '8562056522584': 'Tao56658838',
-  '0899801832': 'lexi251102',
-  'nyrinsfyf23@gmail.com': 'Quynhnhu1205@',
-  'lucysfyf@gmail.com': 'Lucu2408@',
-  'Natalie@sfyf.cn': 'Aa123456@' // Password incorrect
-};
-
-function createWindow() {
+async function main() {
   console.log('robotjs version: ', process.versions);
 
   // Create the browser window.
@@ -35,8 +22,46 @@ function createWindow() {
     },
   })
 
+  // Loop fetch group data by page
+  const hasGroupData = true
+  let page = 0
+  while (hasGroupData) {
+    const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+    console.log('Page: ', page + 1)
+    if (!urlGroupData) break
+
+    for (const url of urlGroupData) {
+      let urlAccess = url
+      // Load the url of the group facebook
+      //https://www.facebook.com/share/WRmL8HHrAXgM7Anr/
+      if (urlAccess.includes('share')) {
+        await mainWindow.loadURL(urlAccess)
+        urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+      }
+      console.log('url: ', urlAccess)
+      await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+      await delay(3000)
+
+      // Action on browser
+      // await executeAction({ type: 'click', x: 1303, y: 423 }, 1000) // Click on the search input
+      // await executeAction({ type: 'text', content: 'zalo' }, 100) // Input the text "zalo"
+      // await executeAction({ type: 'enter' }, 3000) // Press enter
+
+      // Scrape data from browser
+      const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+      if (!!data?.length) {
+        const saveData = await saveDataToDatabase(JSON.stringify(data))
+        console.log('saveData: ', saveData)
+        const transformData = await transformDataByChatgpt()
+        console.log('transformData: ', transformData)
+      }
+
+      await delay(1000) // Wait for 10 seconds
+    }
+    page++
+  }
+
   // and load the facebook of the app.
-  mainWindow.loadURL('https://www.facebook.com/groups/nqvuong72')
 
   // Open the DevTools. (Ctr + Shift + I)
   // mainWindow.webContents.openDevTools()
@@ -51,10 +76,10 @@ function createWindow() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  createWindow()
+  main();
 
   // Register keyboard shortcuts to close browser windows when necessary
-  // Windown close when press Control+Shift+E
+  // App electron close when press CommandOrControl+Shift+E
   globalShortcut.register('CommandOrControl+Shift+E', () => {
     const windows = BrowserWindow.getAllWindows();
     windows.forEach(window => {
@@ -62,8 +87,8 @@ app.whenReady().then(() => {
     });
   });
 
-  // Get mouse position when press CommandOrControl+L
-  globalShortcut.register('CommandOrControl+L', () => {
+  // Get mouse position when press CommandOrControl+P
+  globalShortcut.register('CommandOrControl+P', () => {
     const mousePos = robot.getMousePos();
     console.log('Mouse position:', mousePos);
     BrowserWindow.getAllWindows().forEach(window => {
@@ -123,6 +148,106 @@ async function executeAction(action, delayTime) {
   await delay(delayTime);
 }
 
+// Fetch the data (group facebook data) from the server
+async function fetchGroupData(page) {
+  try {
+    // Fetch data from server
+    const response = await axios.get(`https://www.dadaex.cn/api/crm/groupChat/getGroupListVn?page=${page}&active=&name=&user=&account=&qq=&createTime=&scren=fanyuan`);
+
+    // Check if fetch data error or group data is empty
+    if (response?.data?.status !== 200 || !response?.data?.data?.data?.length) return false;
+
+    // Filter the data by platform Facebook
+    const groupFbData = response?.data?.data?.data?.filter((g) => g?.platform === 'Facebook');
+
+    // Map the data to get the url of the group facebook
+    const urlGroupArr = groupFbData?.map((g) => g?.account?.replace('/members', ''));
+
+    return urlGroupArr;
+  } catch (error) {
+    console.error('Error fetching group data: ', error);
+    return false;
+  }
+}
+
+// Call api to save data to database
+async function saveDataToDatabase(data) {
+  try {
+    const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook', { data: data });
+    return response?.data;
+  } catch (error) {
+    console.log('Error saving data to database: ', error);
+    return false;
+  }
+}
+
+// Call api to transform data to data useful
+async function transformDataByChatgpt() {
+  try {
+    const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/transformRawFb', { page: 1 });
+    return response?.data;
+  } catch (error) {
+    console.log('Error transforming data: ', error);
+    return false;
+  }
+}
+
+// Function to scrape the data from the browser
+const scrapeDataFromBrowser = `(async () => {
+  const delay = async (time) => {
+    await new Promise(resolve => setTimeout(resolve, time));
+  }
+  try {
+    const documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
+    console.log('documentPage: ', documentPage)
+    if (!documentPage) return [] // If the documentPage is not found, return an empty array
+
+    // Get text of group name
+    const elementGroupName = document?.querySelector('div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np.x1sy10c2.xktsk01.xod5an3.x1d52u69 > div > div > div > div > div:nth-child(2) > span > span')?.textContent
+    const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
+
+    let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+    console.log('elementArr: ', elementArr.length)
+    if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
+
+    const data = []
+    for (let i = 0; i < elementArr.length; i++) {
+      // Scroll to the element ith
+      elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      const btnSeeMore = elementArr[i]?.querySelector('.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xt0psk2.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1a2a7pz.x1sur9pj.xkrqix3.xzsf02u.x1s688f[role="button"]')
+      if (btnSeeMore) {
+        btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        btnSeeMore.click()
+        await delay(1000)
+      }
+
+      // Scrape text content of the element
+      let textContent = elementArr[i]?.querySelector('.x1yx25j4.x13crsa5.x1rxj1xn.xxpdul3.x6x52a7')?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1l90r2v.x1pi30zi.x1swvt13.x1iorvi4')?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[2]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[1]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[0]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelector('.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs.x126k92a')?.textContent
+      const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
+      const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
+
+      console.log('text content: ', textContent)
+      if (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨')) {
+        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment' })
+      }
+
+      // Delay 1 second
+      await delay(1000);
+    }
+
+    return data
+  } catch (error) {
+    console.log('Error scraping data from browser: ', error)
+    return []
+  }
+})()`
+
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
@@ -143,42 +268,4 @@ ipcMain.handle('robot-action', async (event, inputText, xxx, yyy) => {
     // process.send("Completed");
 
   }
-
-  // const child = fork('./robotWorker.js', [inputText]);
-  // return new Promise((resolve, reject) => {
-  //   child.on('message', (msg) => {
-  //     resolve(msg);
-  //   });
-  //   child.on('error', (err) => {
-  //     reject(err);
-  //   });
-  // });
 });
-
-// ipcMain.handle('robot-action', async (event, inputText) => {
-//   if (robotProcess) {
-//     robotProcess.kill();  // 如果已有进程在运行，先结束它
-//     robotProcess = null;
-//   }
-//   robotProcess = fork('./robotTask.js');
-//   robotProcess.send({ inputText });
-//   return new Promise((resolve, reject) => {
-//     robotProcess.on('message', (result) => {
-//       resolve(result);
-//     });
-//     robotProcess.on('error', reject);
-//     robotProcess.on('exit', () => {
-//       robotProcess = null;  // 清理引用
-//       resolve("Process terminated.");
-//     });
-//   });
-// });
-
-// ipcMain.handle('stop-action', async () => {
-//   if (robotProcess) {
-//     robotProcess.kill();  // 发送信号终止子进程
-//     robotProcess = null;
-//     return "Stopped";
-//   }
-//   return "No process running.";
-// });

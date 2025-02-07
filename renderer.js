@@ -21,13 +21,3 @@ async function submitText() {
 
 
 }
-
-
-// async function stopMouseOperation() {
-//     try {
-//         const response = await electronAPI.stopText();
-//         console.log('Operation stopped:', response);
-//     } catch (err) {
-//         console.error('Failed to stop robot actions:', err);
-//     }
-// }

@@ -6,21 +6,11 @@
  *
  * https://www.electronjs.org/docs/latest/tutorial/sandbox
  */
-window.addEventListener('DOMContentLoaded', () => {
-  const replaceText = (selector, text) => {
-    const element = document.getElementById(selector)
-    if (element) element.innerText = text
-  }
-
-  for (const type of ['chrome', 'node', 'electron']) {
-    replaceText(`${type}-version`, process.versions[type])
-  }
-})
 
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  playAllActions: (formData) => ipcRenderer.invoke('play-all-actions', formData),
+  groupName: (data) => ipcRenderer.invoke("groupName", data),
   fetchPortSuggestions: (query) => ipcRenderer.invoke('fetch-port-suggestions', query),
   // playAllActionsOOCL: (formData) => ipcRenderer.invoke('play-all-actions-oocl', formData),
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
