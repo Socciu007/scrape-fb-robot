@@ -1,4 +1,4 @@
-# electron-quick-start
+# electron-robot
 
 **Clone and run for a quick way to see Electron in action.**
 
@@ -19,9 +19,9 @@ To clone and run this repository you'll need [Git](https://git-scm.com) and [Nod
 
 ```bash
 # Clone this repository
-git clone https://github.com/electron/electron-quick-start
+git clone https://github.com/electron/electron-robot
 # Go into the repository
-cd electron-quick-start
+cd electron-robot
 # Install dependencies
 npm install
 # Run the app
