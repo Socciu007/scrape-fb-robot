@@ -17,12 +17,12 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 })
 
-
-
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  submitText: (text, xxx, yyy) => ipcRenderer.invoke('robot-action', text, xxx, yyy)
-  // stopText: () => ipcRenderer.invoke('stop-action')
-
+  playAllActions: (formData) => ipcRenderer.invoke('play-all-actions', formData),
+  fetchPortSuggestions: (query) => ipcRenderer.invoke('fetch-port-suggestions', query),
+  // playAllActionsOOCL: (formData) => ipcRenderer.invoke('play-all-actions-oocl', formData),
+  minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
+  onAutoStart: (callback) => ipcRenderer.on('auto-start', (_event) => callback())
 });
