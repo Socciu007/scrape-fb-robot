@@ -39,16 +39,14 @@ async function main() {
         urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
       }
       console.log('url: ', urlAccess)
+      if (!urlAccess.includes('https://www.facebook.com')) continue;
       await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
       await delay(3000)
 
-      // Action on browser
-      // await executeAction({ type: 'click', x: 1303, y: 423 }, 1000) // Click on the search input
-      // await executeAction({ type: 'text', content: 'zalo' }, 100) // Input the text "zalo"
-      // await executeAction({ type: 'enter' }, 3000) // Press enter
 
       // Scrape data from browser
       const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+      console.log('data length: ', data.length)
       if (!!data?.length) {
         const saveData = await saveDataToDatabase(JSON.stringify(data))
         console.log('saveData: ', saveData)
@@ -60,8 +58,6 @@ async function main() {
     }
     page++
   }
-
-  // and load the facebook of the app.
 
   // Open the DevTools. (Ctr + Shift + I)
   // mainWindow.webContents.openDevTools()
@@ -210,7 +206,7 @@ const scrapeDataFromBrowser = `(async () => {
     console.log('elementArr: ', elementArr.length)
     if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
-    const data = []
+    let data = []
     for (let i = 0; i < elementArr.length; i++) {
       // Scroll to the element ith
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -232,20 +228,39 @@ const scrapeDataFromBrowser = `(async () => {
       const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
       const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
 
-      console.log('text content: ', textContent)
       if (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨')) {
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment' })
       }
 
-      // Delay 1 second
-      await delay(1000);
+      if (i < 25 || data.length < 25) {
+        await delay(1000)
+        elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+      } else {
+        break
+      }
+
+      console.log('data: ', data.length)
     }
+
+
+    // Remove duplicate comment and add field contactUs
+    data = data.filter((item, index, self) =>
+      index === self.findIndex((c) => c.content === item.content)
+    ).map((c) => {
+      const contactUs = Array.from(new Set(c?.content?.match(/\\+?\\d{1,3}(?:[.\\s]?\\d{1,4})+|\\b0\\d{9}\\b/g)
+        ?.filter((num, index, self) =>
+          self.indexOf(num) === index && num.replace(/\\D/g, '').length >= 9
+        ) || []))
+        ?.join(', ') || '';
+      return { ...c, contactUs };
+    })
 
     return data
   } catch (error) {
     console.log('Error scraping data from browser: ', error)
     return []
   }
+
 })()`
 
 // In this file you can include the rest of your app's specific main process
