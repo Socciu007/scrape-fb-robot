@@ -6,30 +6,33 @@
   <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'">
   <link href="./styles.css" rel="stylesheet">
-  <title>123</title>
+  <title>Facebook Scrape</title>
 </head>
 
 <body>
-  <h1>123</h1>
+  <div class="container">
+    <img class="container-logo" src="logoapp.png" alt="img-logo">
+    <h1>Facebook Scrape</h1>
+  </div>
   <div>
-    <input type="text" id="inputText" placeholder="输入要执行的次数">
-    <input type="text" id="xxx" placeholder="x坐标">
-    <input type="text" id="yyy" placeholder="y坐标">
-    <button id="submitButton">开始爬取运价</button>
+    <select class="item" id="account" placeholder="Account">
+      <option value="fanyuanmy@gmail.com">fanyuanmy@gmail.com</option>
+      <option value="shanghaifanyuan613@gmail.com">shanghaifanyuan613@gmail.com</option>
+      <option value="shanghaifangyuanvn@gmail.com">shanghaifangyuanvn@gmail.com</option>
+      <option value="Natalie@sfyf.cn">Natalie@sfyf.cn</option>
+    </select>
+    <input class="item" type="password" id="password" placeholder="Password">
+    <button class="item" id="btnSelectAccount">Run Scrape</button>
     <!-- <button id="stopButton">停止操作</button> -->
-
   </div>
   <div id="output"></div>
 
   <!-- 引用外部 JavaScript 文件 -->
   <script src="./renderer.js"></script>
-
   <!-- 添加事件监听器 -->
   <script>
-    document.getElementById("submitButton").addEventListener("click", submitText);
-    // document.getElementById("stopButton").addEventListener("click", stopMouseOperation);
-
+    document.getElementById("btnSelectAccount").addEventListener("click", handleRunScrape);
+    document.addEventListener("DOMContentLoaded", handleChangeAccount);
   </script>
 </body>
-
 </html>

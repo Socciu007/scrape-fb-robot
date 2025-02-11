@@ -3,8 +3,8 @@ const { app, BrowserWindow, ipcMain, globalShortcut, clipboard } = require('elec
 const path = require('node:path')
 const robot = require('robotjs');
 const axios = require('axios');
-const { fork } = require('child_process');
-let robotProcess = null;  // 存储子进程的引用
+// const { fork } = require('child_process');
+// let envRenderer = {};  // Store the reference of the data in renderer process
 
 async function main() {
   console.log('robotjs version: ', process.versions);
@@ -22,42 +22,72 @@ async function main() {
     },
   })
 
-  // Loop fetch group data by page
-  const hasGroupData = true
-  let page = 0
-  while (hasGroupData) {
-    const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-    console.log('Page: ', page + 1)
-    if (!urlGroupData) break
+  // Load the index.html in project of the desktop app.
+  await mainWindow.loadFile('index.html')
 
-    for (const url of urlGroupData) {
-      let urlAccess = url
-      // Load the url of the group facebook
-      //https://www.facebook.com/share/WRmL8HHrAXgM7Anr/
-      if (urlAccess.includes('share')) {
-        await mainWindow.loadURL(urlAccess)
-        urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+  // IPC event listener (Listen data from renderer process)
+  ipcMain.handle("data-input", async (event, data) => {
+    console.log("Received data from renderer: ", data);
+    // Load the url of the facebook (Login FB)
+    await mainWindow.loadURL('https://www.facebook.com/')
+
+    // Ensure the page is fully loaded before executing JavaScript (login facebook)
+    await mainWindow.webContents.executeJavaScript(`
+      (async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for elements to load
+          const accountInput = document.getElementById('email');
+          const passwordInput = document.getElementById('pass');
+
+          if (accountInput && passwordInput) {
+            accountInput.value = ${JSON.stringify(data.account)};
+            passwordInput.value = ${JSON.stringify(data.password)};
+            console.log("Filled Login Info:", accountInput.value, passwordInput.value);
+          }
+        } catch (error) {
+          console.error("Error in injected script:", error);
+        }
+      })();
+    `);
+    await executeAction({ type: 'enter' });
+    await delay(2000)
+
+    // Loop fetch group data by page
+    const hasGroupData = true
+    let page = 0
+    while (hasGroupData) {
+      const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+      console.log('Page: ', page + 1)
+      if (!urlGroupData) break
+
+      for (const url of urlGroupData) {
+        let urlAccess = url
+        // Load the url of the group facebook
+        if (urlAccess.includes('share')) {
+          await mainWindow.loadURL(urlAccess)
+          urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+        }
+        console.log('url: ', urlAccess)
+        if (!urlAccess.includes('https://www.facebook.com')) continue;
+        await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+        await delay(3000)
+
+
+        // Scrape data from browser
+        const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+        console.log('data length: ', data.length)
+        if (!!data?.length) {
+          const saveData = await saveDataToDatabase(JSON.stringify(data))
+          console.log('saveData: ', saveData)
+          const transformData = await transformDataByChatgpt()
+          console.log('transformData: ', transformData)
+        }
+
+        await delay(1000) // Wait for 10 seconds
       }
-      console.log('url: ', urlAccess)
-      if (!urlAccess.includes('https://www.facebook.com')) continue;
-      await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
-      await delay(3000)
-
-
-      // Scrape data from browser
-      const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-      console.log('data length: ', data.length)
-      if (!!data?.length) {
-        const saveData = await saveDataToDatabase(JSON.stringify(data))
-        console.log('saveData: ', saveData)
-        const transformData = await transformDataByChatgpt()
-        console.log('transformData: ', transformData)
-      }
-
-      await delay(1000) // Wait for 10 seconds
+      page++
     }
-    page++
-  }
+  });
 
   // Open the DevTools. (Ctr + Shift + I)
   // mainWindow.webContents.openDevTools()
@@ -208,6 +238,7 @@ const scrapeDataFromBrowser = `(async () => {
 
     let data = []
     for (let i = 0; i < elementArr.length; i++) {
+      await delay(1000)
       // Scroll to the element ith
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -228,12 +259,12 @@ const scrapeDataFromBrowser = `(async () => {
       const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
       const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
 
-      if (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨')) {
+      if (textContent && (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨'))) {
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment' })
       }
 
       if (i < 25 || data.length < 25) {
-        await delay(1000)
+        await delay(2000)
         elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
       } else {
         break
@@ -241,7 +272,6 @@ const scrapeDataFromBrowser = `(async () => {
 
       console.log('data: ', data.length)
     }
-
 
     // Remove duplicate comment and add field contactUs
     data = data.filter((item, index, self) =>
@@ -266,21 +296,7 @@ const scrapeDataFromBrowser = `(async () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
-// IPC 事件监听
-ipcMain.handle('robot-action', async (event, inputText, xxx, yyy) => {
-  for (let index = 0; index < parseInt(inputText); index++) {
-
-    robot.setMouseDelay(10);
-    // robot.setMouseSpeed(2); // 设置鼠标移动速度为默认速度的两倍
-    // robot.moveMouseSmooth(xxx, yyy);
-    robot.moveMouse(xxx, yyy);
-    // robot.mouseClick();
-    // console.log(robot.getPixelColor(400, 120))
-    // const screenSize = robot.getScreenSize();
-    // console.log(screenSize);
-
-    // 重复其他操作
-    // process.send("Completed");
-
-  }
-});
+// IPC event listener (Listen data from renderer process)
+// ipcMain.handle('data-input', async (event, data) => {
+//   return data;
+// });

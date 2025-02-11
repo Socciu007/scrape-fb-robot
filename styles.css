@@ -1,3 +1,23 @@
 /* styles.css */
 
 /* Add styles here to customize the appearance of your app */
+.container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  h1 {
+    margin: 5px 0;
+  }
+  .container-logo {
+    height: 36px;
+    width: 36px;
+  }
+}
+
+.item {
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid;
+  padding: 0 4px;
+}

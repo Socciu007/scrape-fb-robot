@@ -9,10 +9,6 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('electronAPI', {
-  groupName: (data) => ipcRenderer.invoke("groupName", data),
-  fetchPortSuggestions: (query) => ipcRenderer.invoke('fetch-port-suggestions', query),
-  // playAllActionsOOCL: (formData) => ipcRenderer.invoke('play-all-actions-oocl', formData),
-  minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
-  onAutoStart: (callback) => ipcRenderer.on('auto-start', (_event) => callback())
+contextBridge.exposeInMainWorld('electronBridge', {
+  handleSelectAccount: (data) => ipcRenderer.invoke("data-input", data)
 });
