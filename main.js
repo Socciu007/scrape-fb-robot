@@ -26,68 +26,76 @@ async function main() {
   await mainWindow.loadFile('index.html')
 
   // IPC event listener (Listen data from renderer process)
-  ipcMain.handle("data-input", async (event, data) => {
-    console.log("Received data from renderer: ", data);
-    // Load the url of the facebook (Login FB)
-    await mainWindow.loadURL('https://www.facebook.com/')
+  // ipcMain.handle("data-input", async (event, data) => {
+  //   console.log("Received data from renderer: ", data);
+  //   // Load the url of the facebook (Login FB)
+  //   await mainWindow.loadURL('https://www.facebook.com/')
 
-    // Ensure the page is fully loaded before executing JavaScript (login facebook)
-    await mainWindow.webContents.executeJavaScript(`
-      (async () => {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for elements to load
-          const accountInput = document.getElementById('email');
-          const passwordInput = document.getElementById('pass');
+  //   // Ensure the page is fully loaded before executing JavaScript (login facebook)
+  //   await mainWindow.webContents.executeJavaScript(`
+  //     (async () => {
+  //       try {
+  //         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for elements to load
+  //         const accountInput = document.getElementById('email');
+  //         const passwordInput = document.getElementById('pass');
 
-          if (accountInput && passwordInput) {
-            accountInput.value = ${JSON.stringify(data.account)};
-            passwordInput.value = ${JSON.stringify(data.password)};
-            console.log("Filled Login Info:", accountInput.value, passwordInput.value);
-          }
-        } catch (error) {
-          console.error("Error in injected script:", error);
-        }
-      })();
-    `);
-    await executeAction({ type: 'enter' });
-    await delay(2000)
+  //         if (accountInput && passwordInput) {
+  //           accountInput.value = ${JSON.stringify(data.account)};
+  //           passwordInput.value = ${JSON.stringify(data.password)};
+  //           console.log("Filled Login Info:", accountInput.value, passwordInput.value);
+  //         }
+  //       } catch (error) {
+  //         console.error("Error in injected script:", error);
+  //       }
+  //     })();
+  //   `);
+  //   await executeAction({ type: 'enter' });
+  //   await delay(2000)
 
-    // Loop fetch group data by page
-    const hasGroupData = true
-    let page = 0
-    while (hasGroupData) {
-      const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-      console.log('Page: ', page + 1)
-      if (!urlGroupData) break
+  //   // Loop fetch group data by page
+  //   const hasGroupData = true
+  //   let page = 0
+  //   while (hasGroupData) {
+  //     const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+  //     console.log('Page: ', page + 1)
+  //     if (!urlGroupData) break
 
-      for (const url of urlGroupData) {
-        let urlAccess = url
-        // Load the url of the group facebook
-        if (urlAccess.includes('share')) {
-          await mainWindow.loadURL(urlAccess)
-          urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
-        }
-        console.log('url: ', urlAccess)
-        if (!urlAccess.includes('https://www.facebook.com')) continue;
-        await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
-        await delay(3000)
+  //     for (const url of urlGroupData) {
+  //       let urlAccess = url
+  //       // Load the url of the group facebook
+  //       if (urlAccess.includes('share')) {
+  //         await mainWindow.loadURL(urlAccess)
+  //         urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+  //       }
+  //       console.log('url: ', urlAccess)
+  //       if (!urlAccess.includes('https://www.facebook.com')) continue;
+  //       await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+  //       await delay(3000)
 
 
-        // Scrape data from browser
-        const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-        console.log('data length: ', data.length)
-        if (!!data?.length) {
-          const saveData = await saveDataToDatabase(JSON.stringify(data))
-          console.log('saveData: ', saveData)
-          const transformData = await transformDataByChatgpt()
-          console.log('transformData: ', transformData)
-        }
+  //       // Scrape data from browser
+  //       const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+  //       console.log('data length: ', data.length)
+  //       if (!!data?.length) {
+  //         const saveData = await saveDataToDatabase(JSON.stringify(data))
+  //         await mainWindow.webContents.executeJavaScript(`
+  //           (async () => {
+  //             console.log('saveData: ', ${JSON.stringify(saveData)})
+  //           })()
+  //         `)
+  //         const transformData = await transformDataByChatgpt()
+  //         await mainWindow.webContents.executeJavaScript(`
+  //           (async () => {
+  //             console.log('transformData: ', ${JSON.stringify(transformData)})
+  //           })()
+  //         `)
+  //       }
 
-        await delay(1000) // Wait for 10 seconds
-      }
-      page++
-    }
-  });
+  //       await delay(1000) // Wait for 10 seconds
+  //     }
+  //     page++
+  //   }
+  // });
 
   // Open the DevTools. (Ctr + Shift + I)
   // mainWindow.webContents.openDevTools()
@@ -98,11 +106,29 @@ async function main() {
   });
 }
 
+async function main2() {
+  // Create the browser window.
+  const mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 600,
+    x: 0,
+    y: 200,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+  })
+
+  await mainWindow.loadURL('https://www.facebook.com/')
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   main();
+  main2();
 
   // Register keyboard shortcuts to close browser windows when necessary
   // App electron close when press CommandOrControl+Shift+E
@@ -225,7 +251,7 @@ const scrapeDataFromBrowser = `(async () => {
   }
   try {
     const documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
-    console.log('documentPage: ', documentPage)
+    // console.log('documentPage: ', documentPage)
     if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
     // Get text of group name
@@ -233,7 +259,7 @@ const scrapeDataFromBrowser = `(async () => {
     const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
 
     let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
-    console.log('elementArr: ', elementArr.length)
+    // console.log('elementArr: ', elementArr.length)
     if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
     let data = []
