@@ -70,48 +70,48 @@ async function main() {
       // await delay(2000)
 
       // Loop fetch group data by page
-      // const hasGroupData = true
-      // let page = 0
-      // while (hasGroupData) {
-      //   const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-      //   console.log('Page: ', page + 1)
-      //   if (!urlGroupData) break
+      const hasGroupData = true
+      let page = 0
+      while (hasGroupData) {
+        const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+        console.log('Page: ', page + 1)
+        if (!urlGroupData) break
 
-      //   for (const url of urlGroupData) {
-      //     let urlAccess = url
-      //     // Load the url of the group facebook
-      //     if (urlAccess.includes('share')) {
-      //       await mainWindow.loadURL(urlAccess)
-      //       urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
-      //     }
-      //     console.log('url: ', urlAccess)
-      //     if (!urlAccess.includes('https://www.facebook.com')) continue;
-      //     await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
-      //     await delay(3000)
+        for (const url of urlGroupData) {
+          let urlAccess = url
+          // Load the url of the group facebook
+          if (urlAccess.includes('share')) {
+            await mainWindow.loadURL(urlAccess)
+            urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+          }
+          console.log('url: ', urlAccess)
+          if (!urlAccess.includes('https://www.facebook.com')) continue;
+          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+          await delay(3000)
 
 
-      //     // Scrape data from browser
-      //     const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-      //     console.log('data length: ', data.length)
-      //     if (!!data?.length) {
-      //       const saveData = await saveDataToDatabase(JSON.stringify(data))
-      //       await mainWindow.webContents.executeJavaScript(`
-      //         (async () => {
-      //           console.log('saveData: ', ${JSON.stringify(saveData)})
-      //         })()
-      //       `)
-      //       const transformData = await transformDataByChatgpt()
-      //       await mainWindow.webContents.executeJavaScript(`
-      //         (async () => {
-      //           console.log('transformData: ', ${JSON.stringify(transformData)})
-      //         })()
-      //       `)
-      //     }
+          // Scrape data from browser
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+          console.log('data length: ', data.length)
+          if (!!data?.length) {
+            const saveData = await saveDataToDatabase(JSON.stringify(data))
+            await mainWindow.webContents.executeJavaScript(`
+              (async () => {
+                console.log('saveData: ', ${JSON.stringify(saveData)})
+              })()
+            `)
+            const transformData = await transformDataByChatgpt()
+            await mainWindow.webContents.executeJavaScript(`
+              (async () => {
+                console.log('transformData: ', ${JSON.stringify(transformData)})
+              })()
+            `)
+          }
 
-      //     await delay(1000) // Wait for 10 seconds
-      //   }
-      //   page++
-      // }
+          await delay(1000) // Wait for 10 seconds
+        }
+        page++
+      }
     }
 
     await Promise.all([task1(), taskMain()])
