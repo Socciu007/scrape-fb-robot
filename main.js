@@ -1,5 +1,5 @@
 // Modules to control application life and create native browser window
-const { app, BrowserWindow, ipcMain, globalShortcut, clipboard } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = require('electron')
 const path = require('node:path')
 const robot = require('robotjs');
 const axios = require('axios');
@@ -18,7 +18,8 @@ async function main() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      session: session.fromPartition('persist:shanghaifanyuan613@gmail.com')
     },
   })
 
@@ -26,76 +27,95 @@ async function main() {
   await mainWindow.loadFile('index.html')
 
   // IPC event listener (Listen data from renderer process)
-  // ipcMain.handle("data-input", async (event, data) => {
-  //   console.log("Received data from renderer: ", data);
-  //   // Load the url of the facebook (Login FB)
-  //   await mainWindow.loadURL('https://www.facebook.com/')
+  ipcMain.handle("data-input", async (event, data) => {
+    console.log("Received data from renderer: ", data);
 
-  //   // Ensure the page is fully loaded before executing JavaScript (login facebook)
-  //   await mainWindow.webContents.executeJavaScript(`
-  //     (async () => {
-  //       try {
-  //         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for elements to load
-  //         const accountInput = document.getElementById('email');
-  //         const passwordInput = document.getElementById('pass');
+    const task1 = async () => {
+      const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
+      if (!window1) return;
 
-  //         if (accountInput && passwordInput) {
-  //           accountInput.value = ${JSON.stringify(data.account)};
-  //           passwordInput.value = ${JSON.stringify(data.password)};
-  //           console.log("Filled Login Info:", accountInput.value, passwordInput.value);
-  //         }
-  //       } catch (error) {
-  //         console.error("Error in injected script:", error);
-  //       }
-  //     })();
-  //   `);
-  //   await executeAction({ type: 'enter' });
-  //   await delay(2000)
+      // Load the url of the facebook (Login FB)
+      await window1.loadURL('https://www.facebook.com/messages/t')
 
-  //   // Loop fetch group data by page
-  //   const hasGroupData = true
-  //   let page = 0
-  //   while (hasGroupData) {
-  //     const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-  //     console.log('Page: ', page + 1)
-  //     if (!urlGroupData) break
+      // Get the url of the message
+      await delay(10000)
+      // await executeAction({ type: 'click', x: 185, y: 546 });
+      // await delay(3000)
+      await window1.webContents.executeJavaScript(scrapeDataFromMessagePage(data.account))
+    }
 
-  //     for (const url of urlGroupData) {
-  //       let urlAccess = url
-  //       // Load the url of the group facebook
-  //       if (urlAccess.includes('share')) {
-  //         await mainWindow.loadURL(urlAccess)
-  //         urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
-  //       }
-  //       console.log('url: ', urlAccess)
-  //       if (!urlAccess.includes('https://www.facebook.com')) continue;
-  //       await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
-  //       await delay(3000)
+    const taskMain = async () => {
+      // Load the url of the facebook (Login FB)
+      await mainWindow.loadURL('https://www.facebook.com/')
+
+      // Ensure the page is fully loaded before executing JavaScript (login facebook)
+      // await mainWindow.webContents.executeJavaScript(`
+      //   (async () => {
+      //     try {
+      //       await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for elements to load
+      //       const accountInput = document.getElementById('email');
+      //       const passwordInput = document.getElementById('pass');
+
+      //       if (accountInput && passwordInput) {
+      //         accountInput.value = ${JSON.stringify(data.account)};
+      //         passwordInput.value = ${JSON.stringify(data.password)};
+      //         console.log("Filled Login Info:", accountInput.value, passwordInput.value);
+      //       }
+      //     } catch (error) {
+      //       console.error("Error in injected script:", error);
+      //     }
+      //   })();
+      // `);
+      // await executeAction({ type: 'enter' });
+      // await delay(2000)
+
+      // Loop fetch group data by page
+      // const hasGroupData = true
+      // let page = 0
+      // while (hasGroupData) {
+      //   const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+      //   console.log('Page: ', page + 1)
+      //   if (!urlGroupData) break
+
+      //   for (const url of urlGroupData) {
+      //     let urlAccess = url
+      //     // Load the url of the group facebook
+      //     if (urlAccess.includes('share')) {
+      //       await mainWindow.loadURL(urlAccess)
+      //       urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+      //     }
+      //     console.log('url: ', urlAccess)
+      //     if (!urlAccess.includes('https://www.facebook.com')) continue;
+      //     await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+      //     await delay(3000)
 
 
-  //       // Scrape data from browser
-  //       const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-  //       console.log('data length: ', data.length)
-  //       if (!!data?.length) {
-  //         const saveData = await saveDataToDatabase(JSON.stringify(data))
-  //         await mainWindow.webContents.executeJavaScript(`
-  //           (async () => {
-  //             console.log('saveData: ', ${JSON.stringify(saveData)})
-  //           })()
-  //         `)
-  //         const transformData = await transformDataByChatgpt()
-  //         await mainWindow.webContents.executeJavaScript(`
-  //           (async () => {
-  //             console.log('transformData: ', ${JSON.stringify(transformData)})
-  //           })()
-  //         `)
-  //       }
+      //     // Scrape data from browser
+      //     const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+      //     console.log('data length: ', data.length)
+      //     if (!!data?.length) {
+      //       const saveData = await saveDataToDatabase(JSON.stringify(data))
+      //       await mainWindow.webContents.executeJavaScript(`
+      //         (async () => {
+      //           console.log('saveData: ', ${JSON.stringify(saveData)})
+      //         })()
+      //       `)
+      //       const transformData = await transformDataByChatgpt()
+      //       await mainWindow.webContents.executeJavaScript(`
+      //         (async () => {
+      //           console.log('transformData: ', ${JSON.stringify(transformData)})
+      //         })()
+      //       `)
+      //     }
 
-  //       await delay(1000) // Wait for 10 seconds
-  //     }
-  //     page++
-  //   }
-  // });
+      //     await delay(1000) // Wait for 10 seconds
+      //   }
+      //   page++
+      // }
+    }
+
+    await Promise.all([task1(), taskMain()])
+  });
 
   // Open the DevTools. (Ctr + Shift + I)
   // mainWindow.webContents.openDevTools()
@@ -106,21 +126,23 @@ async function main() {
   });
 }
 
-async function main2() {
+// Create the browser window
+async function createWindow({ width, height, x, y, sessionName }) {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 600,
-    x: 0,
-    y: 200,
+    width,
+    height,
+    x,
+    y,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      session: session.fromPartition(`persist:${sessionName}`)
     },
   })
 
-  await mainWindow.loadURL('https://www.facebook.com/')
+  return mainWindow;
 }
 
 // This method will be called when Electron has finished
@@ -128,7 +150,6 @@ async function main2() {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   main();
-  main2();
 
   // Register keyboard shortcuts to close browser windows when necessary
   // App electron close when press CommandOrControl+Shift+E
@@ -244,7 +265,7 @@ async function transformDataByChatgpt() {
   }
 }
 
-// Function to scrape the data from the browser
+// Function to scrape the data from the browser (group page)
 const scrapeDataFromBrowser = `(async () => {
   const delay = async (time) => {
     await new Promise(resolve => setTimeout(resolve, time));
@@ -316,8 +337,105 @@ const scrapeDataFromBrowser = `(async () => {
     console.log('Error scraping data from browser: ', error)
     return []
   }
-
 })()`
+
+// Function to scrape the data from the browser (message page)
+const scrapeDataFromMessagePage = (accountCrawl) => {
+  return `(async () => {
+    const delay = async (time) => {
+      await new Promise(resolve => setTimeout(resolve, time))
+    }
+    try {
+      // Click button chat communication
+      const btnChatComunication = document?.querySelector('div.x1ey2m1c.x9f619.xds687c.x17qophe.x10l6tqk.x13vifvy > div:nth-child(3)')
+      console.log('btnChatComunication: ', btnChatComunication)
+      if (btnChatComunication) {
+        btnChatComunication.querySelector('span[dir="auto"]').click()
+        await delay(3000)
+      }
+
+      // Click button see more to load more chat
+      const btnSeeMore = document?.querySelector('div.x9f619.x1n2onr6.x78zum5.xdt5ytf.x193iq5w.x1t2pt76.x1xzczws.x1vjfegm.xcrg951.xilr8tx.xs83m0k.xczebs5.x1cvmir6 > div > div > div > div.x78zum5.xdt5ytf.x1iyjqo2.x5yr21d.x6ikm8r.x10wlt62 > div > div.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6 > div:nth-child(2) > div > div.xod5an3.x1xmf6yo.x1swvt13.x1pi30zi > div > div')
+      if (btnSeeMore) {
+        btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        btnSeeMore.click()
+        await delay(1000)
+      }
+
+      // Get list chat and check if the list chat is empty
+      const listChat = document?.querySelectorAll('[role="grid"] > div > .html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd')
+      console.log('listChat: ', listChat.length)
+      if (!listChat || !listChat.length) return false
+
+      for (let i = 0; i < listChat.length; i++) {
+        // Click chat to load chat content
+        await delay(1000)
+        listChat[i].scrollIntoView({ behavior: 'smooth', block: 'center' })
+        await delay(1000)
+        listChat[i].querySelector('.x1lliihq.x6ikm8r.x10wlt62.x1n2onr6.xlyipyv.xuxw1ft').click()
+        await delay(1000)
+
+        // Click button break to break the chat
+        const btnBreak = document?.querySelector('div:nth-child(2) > div > div > div > div.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.x2lah0s.x193iq5w.x5ib6vp.xc73u3c.xyamay9.x1l90r2v > div > div > div.x6s0dn4.x78zum5.xl56j7k.x1608yet.xljgi0e.x1e0frkt')
+        if (btnBreak) break
+
+        // Get name chat
+        const textNameChat = document?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6s0dn4.x78zum5.x193iq5w > span > span > span.html-span')?.textContent || ''
+
+        // Get list content chat
+        let listContentChat = document?.querySelectorAll('div.x78zum5.xdt5ytf.x1iyjqo2.x6ikm8r.x1odjw0f.xish69e.x16o0dkt > div > div')
+        if (!listContentChat || !listContentChat.length) continue
+
+        let data = []
+        let countLoop = 0
+        let lengthListContentChat = listContentChat.length
+        for (let j = lengthListContentChat - 1; j >= 0; j--) {
+          const textChat = listContentChat[j]?.querySelector('.html-div.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x1gslohp.x11i5rnm.x12nagc.x1mh8g0r.x1yc453h.x126k92a.x18lvrbx')?.textContent || ''
+          const timeChat = listContentChat[j]?.querySelector('.html-div.xexx8yu.x4uap5.x18d9i69.xkhd6sd.xr1yuqi.xkrivgy.x4ii5y1.x1gryazu.x1ekjcvx.x2b8uid.x13faqbe')?.textContent || ''
+
+          // Check if the text chat is not empty
+          if (textChat && textChat.trim() !== '') {
+            data.push({ content: textChat, group: textNameChat, time: timeChat, crawlBy: ${JSON.stringify(accountCrawl)}, userId: 2, type: 'chat' })
+          }
+          
+          if (j === 0) {
+            if (countLoop === 5) break
+
+            // Scroll to the top of the chat
+            listContentChat[j]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            await delay(3000)
+
+            // Set list content chat again
+            listContentChat = document?.querySelectorAll('div.x78zum5.xdt5ytf.x1iyjqo2.x6ikm8r.x1odjw0f.xish69e.x16o0dkt > div > div')
+            j = listContentChat.length - lengthListContentChat - 1
+            lengthListContentChat = listContentChat.length
+            countLoop++
+          }
+          await delay(1000)
+        }
+        data = data.filter((item, index, self) =>
+          item?.content?.trim() !== '' &&
+          index === self.findIndex((c) => c?.content?.toLowerCase()?.trim() === item?.content?.toLowerCase()?.trim())
+        ).map((c) => {
+          const contactUs = Array.from(new Set(c?.content?.match(/\\+?\\d{1,3}(?:[.\\s]?\\d{1,4})+|\\b0\\d{9}\\b/g)
+            ?.filter((num, index, self) =>
+              self.indexOf(num) === index && num.replace(/\\D/g, '').length >= 9
+            ) || []))
+            ?.join(', ') || '';
+          return { ...c, contactUs };
+        })
+
+        console.log('data: ', data.length)
+        window.electronBridge.sendDataChat(data)
+      }
+
+      return true
+    } catch (error) {
+      console.log('Error scraping data from browser: ', error)
+      return false
+    }
+  })()`
+}
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
@@ -326,3 +444,15 @@ const scrapeDataFromBrowser = `(async () => {
 // ipcMain.handle('data-input', async (event, data) => {
 //   return data;
 // });
+
+ipcMain.handle('data-chat', async (event, data) => {
+  console.log('Chat data: ', data)
+
+  if (data?.length > 0) {
+    const res1 = await saveDataToDatabase(JSON.stringify(data))
+    console.log('saveDataToDatabase: ', res1)
+
+    const res2 = await transformDataByChatgpt()
+    console.log('transformDataByChatgpt: ', res2)
+  }
+});
