@@ -69,7 +69,7 @@ async function main() {
           console.log('url: ', urlAccess)
           if (!urlAccess.includes('https://www.facebook.com')) continue;
           await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
-          await delay(3000)
+          await delay(5000)
 
 
           // Scrape data from browser
@@ -256,14 +256,17 @@ const scrapeDataFromBrowser = `(async () => {
     await new Promise(resolve => setTimeout(resolve, time));
   }
   try {
+    await delay(1000)
     const documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
     // console.log('documentPage: ', documentPage)
     if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
     // Get text of group name
+    await delay(1000)
     const elementGroupName = document?.querySelector('div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np.x1sy10c2.xktsk01.xod5an3.x1d52u69 > div > div > div > div > div:nth-child(2) > span > span')?.textContent
     const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
 
+    await delay(1000)
     let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
     // console.log('elementArr: ', elementArr.length)
     if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
@@ -274,6 +277,7 @@ const scrapeDataFromBrowser = `(async () => {
       // Scroll to the element ith
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
+      await delay(1000)
       const btnSeeMore = elementArr[i]?.querySelector('.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xt0psk2.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1a2a7pz.x1sur9pj.xkrqix3.xzsf02u.x1s688f[role="button"]')
       if (btnSeeMore) {
         btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -282,6 +286,7 @@ const scrapeDataFromBrowser = `(async () => {
       }
 
       // Scrape text content of the element
+      await delay(1000)
       let textContent = elementArr[i]?.querySelector('.x1yx25j4.x13crsa5.x1rxj1xn.xxpdul3.x6x52a7')?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1l90r2v.x1pi30zi.x1swvt13.x1iorvi4')?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[2]?.textContent
