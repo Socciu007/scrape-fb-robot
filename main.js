@@ -38,36 +38,18 @@ async function main() {
       await window1.loadURL('https://www.facebook.com/messages/t')
 
       // Get the url of the message
-      await delay(10000)
+      await delay(20000)
       // await executeAction({ type: 'click', x: 185, y: 546 });
       // await delay(3000)
       await window1.webContents.executeJavaScript(scrapeDataFromMessagePage(data.account))
+
+      // Close the window
+      window1.close();
     }
 
     const taskMain = async () => {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
-
-      // Ensure the page is fully loaded before executing JavaScript (login facebook)
-      // await mainWindow.webContents.executeJavaScript(`
-      //   (async () => {
-      //     try {
-      //       await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for elements to load
-      //       const accountInput = document.getElementById('email');
-      //       const passwordInput = document.getElementById('pass');
-
-      //       if (accountInput && passwordInput) {
-      //         accountInput.value = ${JSON.stringify(data.account)};
-      //         passwordInput.value = ${JSON.stringify(data.password)};
-      //         console.log("Filled Login Info:", accountInput.value, passwordInput.value);
-      //       }
-      //     } catch (error) {
-      //       console.error("Error in injected script:", error);
-      //     }
-      //   })();
-      // `);
-      // await executeAction({ type: 'enter' });
-      // await delay(2000)
 
       // Loop fetch group data by page
       const hasGroupData = true
@@ -112,6 +94,9 @@ async function main() {
         }
         page++
       }
+
+      // Load the index.html in project of the desktop app.
+      await mainWindow.loadFile('index.html')
     }
 
     await Promise.all([task1(), taskMain()])
@@ -351,7 +336,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
       console.log('btnChatComunication: ', btnChatComunication)
       if (btnChatComunication) {
         btnChatComunication.querySelector('span[dir="auto"]').click()
-        await delay(3000)
+        await delay(8000)
       }
 
       // Click button see more to load more chat
