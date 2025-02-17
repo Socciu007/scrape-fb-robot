@@ -21,3 +21,34 @@
   border: 1px solid #aaa;
   padding: 0 4px;
 }
+
+.container-body {
+  .container-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+    h2 {
+      font-size: 13px;
+    }
+  }
+  .container-button {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+  }
+}
+
+.btn-remove-account,
+.btn-add-account,
+.btn-run-scrape {
+  width: 115px !important;
+}
+
+#alert-message {
+  font-size: 13px;
+  color: red;
+  margin-bottom: 10px;
+  display: none;
+}
