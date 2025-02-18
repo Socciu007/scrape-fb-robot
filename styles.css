@@ -46,9 +46,14 @@
   width: 115px !important;
 }
 
-#alert-message {
+#alert-message,
+.alert-msg {
   font-size: 13px;
   color: red;
   margin-bottom: 10px;
   display: none;
+}
+
+.alert-msg {
+  margin-bottom: 0 !important;
 }

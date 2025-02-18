@@ -10,17 +10,24 @@
 async function handleRunScrape() {
     const accounts = []
     const accountElements = document.querySelectorAll(".container-input")
-    console.log('element', accountElements);
-    console.log('accountElements', accounts)
     try {
         accountElements.forEach(element => {
-            const account = element.querySelector(".account-select").value;
+            const account = element.querySelector(".select-account").value;
             const password = element.querySelector(".password-input").value;
+            if (!account || !password) {
+                element.querySelector(".alert-msg").textContent = "Please fill in all fields";
+                element.querySelector(".alert-msg").style.display = "block";
+            } else {
+                element.querySelector(".alert-msg").style.display = "none";
+            }
+
             accounts.push({ account, password });
         })
-        console.log('accounts', accounts)
-        // Send data from renderer process (frontend) to main process by using electronBridge in preload.js
-        window.electronBridge.handleSelectAccount(accounts);
+
+        if (!!accounts.length && accounts.every(account => (account.account !== "" && account.password !== ""))) {
+            // Send data from renderer process (frontend) to main process by using electronBridge in preload.js
+            window.electronBridge.handleSelectAccount(accounts);
+        }
     } catch (err) {
         console.error('Failed to execute robot actions:', err);
     }
@@ -64,9 +71,9 @@ async function handleAddAccount(accountCount) {
 
     accountDiv.innerHTML = `
       <h2>Account ${accountCount}: </h2>
-      <select class="item account-select" id="account${accountCount}" type="text">
+      <select class="item select-account" id="account${accountCount}" type="text">
         <option value="fanyuanmy@gmail.com">fanyuanmy@gmail.com</option>
-        <option value="shanghaifanyuan613@gmail.com">shanghaifanyuan613@gmail.com</option>
+        <option value="Natalie@sfyf.cn">Natalie@sfyf.cn</option>
         <option value="shanghaifangyuanvn@gmail.com">shanghaifangyuanvn@gmail.com</option>
       </select>
       <input
@@ -75,6 +82,7 @@ async function handleAddAccount(accountCount) {
         id="password${accountCount}"
         placeholder="Password"
       />
+      <div class="alert-msg"></div>
     `
 
     accountsContainer.appendChild(accountDiv)
@@ -82,7 +90,7 @@ async function handleAddAccount(accountCount) {
     btnRemoveAccount.innerText = "Remove Account"
 
     // Apply Select2 to the new select field
-    $(accountDiv.querySelector(".account-select")).select2({
+    $(accountDiv.querySelector(".select-account")).select2({
         tags: true, // Allow new values
         multiple: false, // Only select one value
         placeholder: "Select or enter email",
@@ -91,7 +99,7 @@ async function handleAddAccount(accountCount) {
     })
 
     // When the user enters a new email, automatically select it
-    $(accountDiv.querySelector(".account-select")).on(
+    $(accountDiv.querySelector(".select-account")).on(
         "select2:select",
         function (e) {
             let newValue = e.params.data.id

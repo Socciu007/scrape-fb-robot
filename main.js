@@ -30,76 +30,81 @@ async function main() {
   ipcMain.handle("data-input", async (event, data) => {
     console.log("Received data from renderer: ", data);
 
-    // const task1 = async () => {
-    //   const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
-    //   if (!window1) return;
+    const task1 = async (data) => {
+      const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
+      if (!window1) return;
 
-    //   // Load the url of the facebook (Login FB)
-    //   await window1.loadURL('https://www.facebook.com/messages/t')
+      // Load the url of the facebook (Login FB)
+      await window1.loadURL('https://www.facebook.com/messages/t')
 
-    //   // Get the url of the message
-    //   await delay(20000)
-    //   // await executeAction({ type: 'click', x: 185, y: 546 });
-    //   // await delay(3000)
-    //   await window1.webContents.executeJavaScript(scrapeDataFromMessagePage(data.account))
+      // Get the url of the message
+      await delay(20000)
+      // await executeAction({ type: 'click', x: 185, y: 546 });
+      // await delay(3000)
+      await window1.webContents.executeJavaScript(scrapeDataFromMessagePage(data.account))
 
-    //   // Close the window
-    //   window1.close();
-    // }
+      // Close the window
+      window1.close();
+    }
 
-    // const taskMain = async () => {
-    //   // Load the url of the facebook (Login FB)
-    //   await mainWindow.loadURL('https://www.facebook.com/')
+    const runTask1 = data.map(async (item) => {
+      await task1(item)
+      return
+    })
 
-    //   // Loop fetch group data by page
-    //   const hasGroupData = true
-    //   let page = 0
-    //   while (hasGroupData) {
-    //     const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-    //     console.log('Page: ', page + 1)
-    //     if (!urlGroupData) break
+    const taskMain = async () => {
+      // Load the url of the facebook (Login FB)
+      await mainWindow.loadURL('https://www.facebook.com/')
 
-    //     for (const url of urlGroupData) {
-    //       let urlAccess = url
-    //       // Load the url of the group facebook
-    //       if (urlAccess.includes('share')) {
-    //         await mainWindow.loadURL(urlAccess)
-    //         urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
-    //       }
-    //       console.log('url: ', urlAccess)
-    //       if (!urlAccess.includes('https://www.facebook.com')) continue;
-    //       await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
-    //       await delay(5000)
+      // Loop fetch group data by page
+      const hasGroupData = true
+      let page = 0
+      while (hasGroupData) {
+        const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+        console.log('Page: ', page + 1)
+        if (!urlGroupData) break
+
+        for (const url of urlGroupData) {
+          let urlAccess = url
+          // Load the url of the group facebook
+          if (urlAccess.includes('share')) {
+            await mainWindow.loadURL(urlAccess)
+            urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+          }
+          console.log('url: ', urlAccess)
+          if (!urlAccess.includes('https://www.facebook.com')) continue;
+          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+          await delay(5000)
 
 
-    //       // Scrape data from browser
-    //       const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-    //       console.log('data length: ', data.length)
-    //       if (!!data?.length) {
-    //         const saveData = await saveDataToDatabase(JSON.stringify(data))
-    //         await mainWindow.webContents.executeJavaScript(`
-    //           (async () => {
-    //             console.log('saveData: ', ${JSON.stringify(saveData)})
-    //           })()
-    //         `)
-    //         const transformData = await transformDataByChatgpt()
-    //         await mainWindow.webContents.executeJavaScript(`
-    //           (async () => {
-    //             console.log('transformData: ', ${JSON.stringify(transformData)})
-    //           })()
-    //         `)
-    //       }
+          // Scrape data from browser
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+          console.log('data length: ', data.length)
+          if (!!data?.length) {
+            const saveData = await saveDataToDatabase(JSON.stringify(data))
+            await mainWindow.webContents.executeJavaScript(`
+              (async () => {
+                console.log('saveData: ', ${JSON.stringify(saveData)})
+              })()
+            `)
+            const transformData = await transformDataByChatgpt()
+            await mainWindow.webContents.executeJavaScript(`
+              (async () => {
+                console.log('transformData: ', ${JSON.stringify(transformData)})
+              })()
+            `)
+          }
 
-    //       await delay(1000) // Wait for 10 seconds
-    //     }
-    //     page++
-    //   }
+          await delay(1000) // Wait for 10 seconds
+        }
+        page++
+      }
 
-    //   // Load the index.html in project of the desktop app.
-    //   await mainWindow.loadFile('index.html')
-    // }
+      // Load the index.html in project of the desktop app.
+      await mainWindow.loadFile('index.html')
+    }
 
-    // await Promise.all([task1(), taskMain()])
+    await Promise.all([runTask1, taskMain()])
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -341,7 +346,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
       console.log('btnChatComunication: ', btnChatComunication)
       if (btnChatComunication) {
         btnChatComunication.querySelector('span[dir="auto"]').click()
-        await delay(8000)
+        await delay(14000)
       }
 
       // Click button see more to load more chat
@@ -429,12 +434,6 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
-
-// IPC event listener (Listen data from renderer process)
-// ipcMain.handle('data-input', async (event, data) => {
-//   return data;
-// });
-
 ipcMain.handle('data-chat', async (event, data) => {
   console.log('Chat data: ', data)
 
