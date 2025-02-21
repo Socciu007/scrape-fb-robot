@@ -52,7 +52,59 @@ async function main() {
       return
     })
 
-    const taskMain = async () => {
+    // const taskMain = async () => {
+    //   // Load the url of the facebook (Login FB)
+    //   await mainWindow.loadURL('https://www.facebook.com/')
+
+    //   // Loop fetch group data by page
+    //   const hasGroupData = true
+    //   let page = 0
+    //   while (hasGroupData) {
+    //     const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+    //     console.log('Page: ', page + 1)
+    //     if (!urlGroupData) break
+
+    //     for (const url of urlGroupData) {
+    //       let urlAccess = url
+    //       // Load the url of the group facebook
+    //       if (urlAccess.includes('share')) {
+    //         await mainWindow.loadURL(urlAccess)
+    //         urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+    //       }
+    //       console.log('url: ', urlAccess)
+    //       if (!urlAccess.includes('https://www.facebook.com')) continue;
+    //       await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+    //       await delay(5000)
+
+
+    //       // Scrape data from browser
+    //       const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+    //       console.log('data length: ', data.length)
+    //       if (!!data?.length) {
+    //         const saveData = await saveDataToDatabase(JSON.stringify(data))
+    //         await mainWindow.webContents.executeJavaScript(`
+    //           (async () => {
+    //             console.log('saveData: ', ${JSON.stringify(saveData)})
+    //           })()
+    //         `)
+    //         const transformData = await transformDataByChatgpt()
+    //         await mainWindow.webContents.executeJavaScript(`
+    //           (async () => {
+    //             console.log('transformData: ', ${JSON.stringify(transformData)})
+    //           })()
+    //         `)
+    //       }
+
+    //       await delay(1000) // Wait for 10 seconds
+    //     }
+    //     page++
+    //   }
+
+    //   // Load the index.html in project of the desktop app.
+    //   await mainWindow.loadFile('index.html')
+    // }
+
+    const task2 = async () => {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
 
@@ -73,9 +125,8 @@ async function main() {
           }
           console.log('url: ', urlAccess)
           if (!urlAccess.includes('https://www.facebook.com')) continue;
-          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
+          await mainWindow.loadURL(urlAccess.replace(/\/$/, ""))
           await delay(5000)
-
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
@@ -104,7 +155,7 @@ async function main() {
       await mainWindow.loadFile('index.html')
     }
 
-    await Promise.all([runTask1, taskMain()])
+    await Promise.all([runTask1, task2()])
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -262,14 +313,14 @@ const scrapeDataFromBrowser = `(async () => {
   }
   try {
     await delay(1000)
-    const documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
-    // console.log('documentPage: ', documentPage)
+    const documentPage = document?.querySelector('div[role="feed"]')
+    console.log('documentPage: ', documentPage)
     if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
     // Get text of group name
     await delay(1000)
-    const elementGroupName = document?.querySelector('div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np.x1sy10c2.xktsk01.xod5an3.x1d52u69 > div > div > div > div > div:nth-child(2) > span > span')?.textContent
-    const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
+    const groupName = document?.querySelector('div.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.x193iq5w.xs83m0k.xsyo7zv.x16hj40l.x1yrsyyn.x1r8uery.x1dh0t33.x17upfok.x1l90r2v > div > div > div > div:nth-child(1) > div > div:nth-child(1) > h2 > span > a')?.textContent
+    // const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
 
     await delay(1000)
     let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
