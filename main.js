@@ -47,10 +47,10 @@ async function main() {
       // window1.close();
     }
 
-    // const runTask1 = data.map(async (item) => {
-    //   await task1(item)
-    //   return
-    // })
+    const runTask1 = data.map(async (item) => {
+      await task1(item)
+      return
+    })
 
     const taskMain = async () => {
       // Load the url of the facebook (Login FB)
@@ -120,7 +120,7 @@ async function main() {
           console.log('url: ', url)
           if (!url.includes('https://www.facebook.com')) continue;
           await mainWindow.loadURL(url)
-          await delay(5000)
+          await delay(3000)
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
@@ -141,7 +141,7 @@ async function main() {
       await mainWindow.loadFile('index.html')
     }
 
-    await Promise.all([task2()])
+    await Promise.all([task2(), runTask1])
   });
 
   // Open the DevTools. (Ctr + Shift + I)
