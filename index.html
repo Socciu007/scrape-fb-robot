@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;"
+    />
+    <link href="./styles.css" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    <title>Facebook Scrape</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <img class="container-logo" src="logoapp.png" alt="img-logo" />
+      <h1>Facebook Scrape</h1>
+    </div>
+    <div class="container-body" id="accountsContainer">
+      <div class="container-input">
+        <h2>Account 1:</h2>
+        <select class="item select-account" id="account1" type="text">
+          <option value="fanyuanmy@gmail.com">fanyuanmy@gmail.com</option>
+          <!-- <option value="shanghaifanyuan613@gmail.com">shanghaifanyuan613@gmail.com</option> -->
+          <option value="shanghaifangyuanvn@gmail.com">
+            shanghaifangyuanvn@gmail.com
+          </option>
+          <option value="Natalie@sfyf.cn">Natalie@sfyf.cn</option>
+        </select>
+        <input
+          class="item password-input"
+          type="password"
+          id="password"
+          placeholder="Password"
+        />
+        <div class="alert-msg"></div>
+      </div>
+      <div class="container-input">
+        <h2>Account 2:</h2>
+        <select class="item select-account" id="account2" type="text">
+          <option value="shanghaifangyuanvn@gmail.com">
+            shanghaifangyuanvn@gmail.com
+          </option>
+          <option value="fanyuanmy@gmail.com">fanyuanmy@gmail.com</option>
+          <option value="Natalie@sfyf.cn">Natalie@sfyf.cn</option>
+        </select>
+        <input
+          class="item password-input"
+          type="password"
+          id="password1"
+          placeholder="Password"
+        />
+        <div class="alert-msg"></div>
+      </div>
+    </div>
+    <div id="alert-message"></div>
+    <div class="container-button">
+      <button class="item btn-add-account" id="btnAddAccount">
+        Add Account
+      </button>
+      <button
+        class="item btn-remove-account"
+        id="btnRemoveAccount"
+        style="display: none"
+      >
+        Remove Account
+      </button>
+      <button class="item btn-run-scrape" id="btnSelectAccount">
+        Run Scrape
+      </button>
+    </div>
+    <div id="output"></div>
+
+    <!-- 引用外部 JavaScript 文件 -->
+    <script src="./renderer.js"></script>
+    <!-- 添加事件监听器 -->
+    <script>
+      // Add event run scrape
+      document
+        .getElementById("btnSelectAccount")
+        .addEventListener("click", handleRunScrape);
+
+      // Add event add account
+      document.getElementById("btnAddAccount").addEventListener("click", () => {
+        let accountCount = document.querySelectorAll(".container-input").length;
+
+        // If account count is greater than 5, return
+        if (accountCount > 4) {
+          document.getElementById("alert-message").innerHTML =
+            "You can only add up to 5 accounts";
+          document.getElementById("alert-message").style.display = "block";
+          return;
+        }
+
+        handleAddAccount(accountCount);
+      });
+
+      // Add event change account
+      document.addEventListener("DOMContentLoaded", handleChangeAccount);
+
+      // Add event select2
+      $(document).ready(function () {
+        $(".select-account").select2({
+          tags: true, // Allow to enter new value
+          multiple: false, // Only select one value
+          placeholder: "Enter or select email",
+          allowClear: true,
+          tokenSeparators: [",", " "], // Press Enter or comma to add
+        });
+
+        // When user enter email, automatically select it
+        $(".select-account").on("select2:select", function (e) {
+          let newValue = e.params.data.id;
+          $(this).val(newValue).trigger("change");
+        });
+      });
+    </script>
+  </body>
+</html>
