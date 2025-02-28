@@ -29,6 +29,7 @@ async function main() {
   // IPC event listener (Listen data from renderer process)
   ipcMain.handle("data-input", async (event, data) => {
     console.log("Received data from renderer: ", data);
+    // await mainWindow.setBounds({ x: -2000, y: -2000, width: 1200, height: 600 });
 
     const task1 = async (data) => {
       const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
@@ -79,20 +80,12 @@ async function main() {
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-          console.log('data length: ', data.length)
+          console.log('data length: ', data.length, data)
           if (!!data?.length) {
             const saveData = await saveDataToDatabase(JSON.stringify(data))
-            await mainWindow.webContents.executeJavaScript(`
-              (async () => {
-                console.log('saveData: ', ${JSON.stringify(saveData)})
-              })()
-            `)
+            console.log('saveData: ', saveData)
             const transformData = await transformDataByChatgpt()
-            await mainWindow.webContents.executeJavaScript(`
-              (async () => {
-                console.log('transformData: ', ${JSON.stringify(transformData)})
-              })()
-            `)
+            console.log('transformData: ', transformData)
           }
 
           await delay(1000) // Wait for 10 seconds
@@ -141,7 +134,7 @@ async function main() {
       await mainWindow.loadFile('index.html')
     }
 
-    await Promise.all([task2(), runTask1])
+    await Promise.all([taskMain(), runTask1])
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -337,9 +330,23 @@ const scrapeDataFromBrowser = `(async () => {
       if (!textContent) textContent = elementArr[i]?.querySelector('.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs.x126k92a')?.textContent
       const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
       const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
+      await delay(1000)
+      const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
+        elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
+      let textUrlContent = ''
+      if (elementUrlContent) {
+        setTimeout(() => {
+          elementUrlContent.focus();
+        }, 1000)
+        await delay(2000)
+        elementUrlContent.focus();
+        // await elementUrlContent.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        textUrlContent = elementUrlContent?.href || ''
+      }
+      console.log('textUrlContent: ', textUrlContent)
 
       if (textContent && (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨'))) {
-        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment' })
+        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
       }
 
       if (i < 25 || data.length < 25) {
@@ -418,9 +425,21 @@ const scrapeDataFromGroupPage = () => {
         if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x1swvt13.x1pi30zi.x18d9i69')?.textContent || ''
         const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
         const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
+        await delay(1000)
+        const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
+          elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
+        let textUrlContent = ''
+        if (elementUrlContent) {
+          await delay(1000)
+          await elementUrlContent?.focus()
+          await delay(2000)
+          await elementUrlContent.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+          textUrlContent = elementUrlContent?.href || elementUrlContent?.getAttribute('href') || elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')?.href || ''
+        }
+        console.log('textUrlContent: ', textUrlContent)
 
         if (textContent) {
-          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment' })
+          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
         }
 
         if (i < 25 || data.length < 25) {
