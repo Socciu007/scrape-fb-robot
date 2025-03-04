@@ -53,6 +53,7 @@ async function main() {
       return
     })
 
+    // Task main: Crawl data from group page with keyword='zalo'
     const taskMain = async () => {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
@@ -80,12 +81,11 @@ async function main() {
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
-          console.log('data length: ', data.length, data)
           if (!!data?.length) {
             const saveData = await saveDataToDatabase(JSON.stringify(data))
-            console.log('saveData: ', saveData)
+            console.log('saveDataZalo: ', saveData)
             const transformData = await transformDataByChatgpt()
-            console.log('transformData: ', transformData)
+            console.log('transformDataZalo: ', transformData)
           }
 
           await delay(1000) // Wait for 10 seconds
@@ -97,6 +97,7 @@ async function main() {
       await mainWindow.loadFile('index.html')
     }
 
+    // Task 2: Crawl data from group page
     const task2 = async () => {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
@@ -117,10 +118,9 @@ async function main() {
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
-          console.log('data length: ', data.length)
           if (!!data?.length) {
             const saveData = await saveDataToDatabase(JSON.stringify(data))
-            console.log('saveData: ', saveData)
+            console.log('saveDataGroup: ', saveData)
             const transformData = await transformDataByChatgpt()
             console.log('transformData: ', transformData)
           }
@@ -241,7 +241,7 @@ async function executeAction(action, delayTime) {
   await delay(delayTime);
 }
 
-// Fetch the data (group facebook data) from the server
+// Fetch the data (group facebook data) from the server CRM
 async function fetchGroupData(page) {
   try {
     // Fetch data from server
@@ -263,7 +263,7 @@ async function fetchGroupData(page) {
   }
 }
 
-// Call api to save data to database
+// Call api to save data to database (ebvn2)
 async function saveDataToDatabase(data) {
   try {
     const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook', { data: data });
@@ -274,7 +274,7 @@ async function saveDataToDatabase(data) {
   }
 }
 
-// Call api to transform data to data useful
+// Call api to transform data to data useful (ebvn2)
 async function transformDataByChatgpt() {
   try {
     const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/transformRawFb', { page: 1 });
@@ -293,7 +293,7 @@ const scrapeDataFromBrowser = `(async () => {
   try {
     await delay(1000)
     const documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
-    console.log('documentPage: ', documentPage)
+    // console.log('documentPage: ', documentPage)
     if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
     // Get text of group name
@@ -333,15 +333,32 @@ const scrapeDataFromBrowser = `(async () => {
       await delay(1000)
       const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
         elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
+      const elementShare = elementArr[i]?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd > div > div > div:nth-child(4) > div > div > div > div > div.xq8finb.x16n37ib > div > div:nth-child(4) > div > div.x9f619.x1ja2u2z.x78zum5.x1n2onr6.x1r8uery.x1iyjqo2.xs83m0k.xeuugli.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.xn6708d.x1ye3gou.xexx8yu.xcud41i.x139jcc6.x4cne27.xifccgj.xn3w4p2.xuxw1ft > div:nth-child(1) > i')
       let textUrlContent = ''
-      if (elementUrlContent) {
-        setTimeout(() => {
-          elementUrlContent.focus();
-        }, 1000)
-        await delay(2000)
-        elementUrlContent.focus();
-        // await elementUrlContent.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-        textUrlContent = elementUrlContent?.href || ''
+      if (elementUrlContent || elementShare) {
+        await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await elementUrlContent?.focus()
+        if (elementShare) {
+          await elementShare.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await elementShare.click()
+          await delay(1000)
+          const elementCopy = document?.querySelector('div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div > div > div.xb57i2i.x1q594ok.x5lxg6s.x78zum5.xdt5ytf.x6ikm8r.x1ja2u2z.x1pq812k.x1rohswg.xfk6m8.x1yqm8si.xjx87ck.xx8ngbg.xwo3gff.x1n2onr6.x1oyok0e.x1odjw0f.x1iyjqo2.xy5w88m > div.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6.xaci4zi.x129vozr > div > div > div > div:nth-child(6) > div > div > div > div > div > div:nth-child(3) > div > div.x1n2onr6.x1ja2u2z.x9f619.x78zum5.xdt5ytf.x193iq5w.x1l7klhg.x1iyjqo2.xs83m0k.x2lwn1j.x1y1aw1k.xwib8y2 > div > div:nth-child(1) > div > i');
+          if (elementCopy) {
+            elementCopy.addEventListener("click", async () => {
+              try {
+                textUrlContent = await navigator.clipboard.readText();
+                console.log("✅ Nội dung đã copy:", textUrlContent);
+              } catch (err) {
+                console.log("❌ Lỗi khi lấy nội dung clipboard:", err);
+              }
+            })
+            await elementCopy.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await elementCopy.click()
+            await delay(1000)
+          }
+        }
+        await delay(1000)
+        textUrlContent = textUrlContent || elementUrlContent?.href || ''
       }
       console.log('textUrlContent: ', textUrlContent)
 
@@ -428,13 +445,32 @@ const scrapeDataFromGroupPage = () => {
         await delay(1000)
         const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
           elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
+        const elementShare = elementArr[i]?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd > div > div > div:nth-child(4) > div > div > div > div > div.xq8finb.x16n37ib > div > div:nth-child(4) > div > div.x9f619.x1ja2u2z.x78zum5.x1n2onr6.x1r8uery.x1iyjqo2.xs83m0k.xeuugli.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.xn6708d.x1ye3gou.xexx8yu.xcud41i.x139jcc6.x4cne27.xifccgj.xn3w4p2.xuxw1ft > div:nth-child(1) > i')
         let textUrlContent = ''
-        if (elementUrlContent) {
-          await delay(1000)
+        if (elementUrlContent || elementShare) {
+          await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           await elementUrlContent?.focus()
-          await delay(2000)
-          await elementUrlContent.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-          textUrlContent = elementUrlContent?.href || elementUrlContent?.getAttribute('href') || elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')?.href || ''
+          if (elementShare) {
+            await elementShare.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await elementShare.click()
+            await delay(1000)
+            const elementCopy = document?.querySelector('div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div > div > div.xb57i2i.x1q594ok.x5lxg6s.x78zum5.xdt5ytf.x6ikm8r.x1ja2u2z.x1pq812k.x1rohswg.xfk6m8.x1yqm8si.xjx87ck.xx8ngbg.xwo3gff.x1n2onr6.x1oyok0e.x1odjw0f.x1iyjqo2.xy5w88m > div.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6.xaci4zi.x129vozr > div > div > div > div:nth-child(6) > div > div > div > div > div > div:nth-child(3) > div > div.x1n2onr6.x1ja2u2z.x9f619.x78zum5.xdt5ytf.x193iq5w.x1l7klhg.x1iyjqo2.xs83m0k.x2lwn1j.x1y1aw1k.xwib8y2 > div > div:nth-child(1) > div > i');
+            if (elementCopy) {
+              elementCopy.addEventListener("click", async () => {
+                try {
+                  textUrlContent = await navigator.clipboard.readText();
+                  console.log("✅ Nội dung đã copy:", textUrlContent);
+                } catch (err) {
+                  console.log("❌ Lỗi khi lấy nội dung clipboard:", err);
+                }
+              })
+              await elementCopy.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              await elementCopy.click()
+              await delay(1000)
+            }
+          }
+          await delay(1000)
+          textUrlContent = textUrlContent || elementUrlContent?.href || ''
         }
         console.log('textUrlContent: ', textUrlContent)
 
@@ -576,13 +612,11 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 ipcMain.handle('data-chat', async (event, data) => {
-  console.log('Chat data: ', data)
-
   if (data?.length > 0) {
     const res1 = await saveDataToDatabase(JSON.stringify(data))
-    console.log('saveDataToDatabase: ', res1)
+    console.log('saveDataChat: ', res1)
 
     const res2 = await transformDataByChatgpt()
-    console.log('transformDataByChatgpt: ', res2)
+    console.log('transformDataChatByChatgpt: ', res2)
   }
 });
