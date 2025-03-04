@@ -215,11 +215,15 @@ async function delay(time) {
 }
 
 // Execute action on the app browser
-async function executeAction(action, delayTime) {
+async function executeAction(action, delayTime = 1000) {
   robot.moveMouse(action.x, action.y);
   switch (action.type) {
     case 'click':
       robot.mouseClick();
+      break;
+    case 'paste':
+      console.log('action function: ', action)
+      robot.keyTap('v', ['control']);
       break;
     case 'text':
       clipboard.writeText(action.content);
@@ -331,7 +335,7 @@ const scrapeDataFromBrowser = `(async () => {
       const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
       const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
       await delay(1000)
-      const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
+      const elementUrlContent = elementArr[i]?.querySelectorAll('span:nth-child(1) > span > span > a[role="link"]')[2] ||
         elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
       const elementShare = elementArr[i]?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd > div > div > div:nth-child(4) > div > div > div > div > div.xq8finb.x16n37ib > div > div:nth-child(4) > div > div.x9f619.x1ja2u2z.x78zum5.x1n2onr6.x1r8uery.x1iyjqo2.xs83m0k.xeuugli.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.xn6708d.x1ye3gou.xexx8yu.xcud41i.x139jcc6.x4cne27.xifccgj.xn3w4p2.xuxw1ft > div:nth-child(1) > i')
       let textUrlContent = ''
@@ -355,6 +359,7 @@ const scrapeDataFromBrowser = `(async () => {
             await elementCopy.scrollIntoView({ behavior: 'smooth', block: 'center' });
             await elementCopy.click()
             await delay(1000)
+            // await window.electronBridge.requireAction('paste')
           }
         }
         await delay(1000)
@@ -620,3 +625,10 @@ ipcMain.handle('data-chat', async (event, data) => {
     console.log('transformDataChatByChatgpt: ', res2)
   }
 });
+
+ipcMain.handle('require-action', async (event, action) => {
+  if (action === 'paste') {
+    console.log('action: ', action)
+    await executeAction({type: action}, 1000)
+  }
+})
