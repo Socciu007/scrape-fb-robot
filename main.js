@@ -363,7 +363,7 @@ const scrapeDataFromBrowser = `(async () => {
           }
         }
         await delay(1000)
-        textUrlContent = textUrlContent || elementUrlContent?.href || ''
+        textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
       }
       console.log('textUrlContent: ', textUrlContent)
 
@@ -475,7 +475,7 @@ const scrapeDataFromGroupPage = () => {
             }
           }
           await delay(1000)
-          textUrlContent = textUrlContent || elementUrlContent?.href || ''
+          textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
         }
         console.log('textUrlContent: ', textUrlContent)
 
@@ -551,6 +551,8 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
         await delay(1000)
         listChat[i].querySelector('.x1lliihq.x6ikm8r.x10wlt62.x1n2onr6.xlyipyv.xuxw1ft').click()
         await delay(1000)
+        const urlMessage = await window.location.href
+        console.log('urlMessage: ', urlMessage)
 
         // Click button break to break the chat
         const btnBreak = document?.querySelector('div:nth-child(2) > div > div > div > div.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.x2lah0s.x193iq5w.x5ib6vp.xc73u3c.xyamay9.x1l90r2v > div > div > div.x6s0dn4.x78zum5.xl56j7k.x1608yet.xljgi0e.x1e0frkt')
@@ -572,7 +574,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 
           // Check if the text chat is not empty
           if (textChat && textChat.trim() !== '') {
-            data.push({ content: textChat, group: textNameChat, time: timeChat, crawlBy: ${JSON.stringify(accountCrawl)}, userId: 2, type: 'chat' })
+            data.push({ content: textChat, group: textNameChat, time: timeChat, crawlBy: ${JSON.stringify(accountCrawl)}, userId: 2, type: 'chat', urlContent: urlMessage })
           }
           
           if (j === 0) {
@@ -629,6 +631,6 @@ ipcMain.handle('data-chat', async (event, data) => {
 ipcMain.handle('require-action', async (event, action) => {
   if (action === 'paste') {
     console.log('action: ', action)
-    await executeAction({type: action}, 1000)
+    await executeAction({ type: action }, 1000)
   }
 })
