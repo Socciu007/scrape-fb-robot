@@ -58,6 +58,15 @@ async function main() {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
 
+      // Check login status
+      const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
+      console.log('isLogin: ', isLogin)
+      if (!isLogin) {
+        await delay(100000)
+        await mainWindow.close()
+        return
+      };
+
       // Loop fetch group data by page
       const hasGroupData = true
       let page = 0
@@ -214,6 +223,31 @@ async function delay(time) {
   await new Promise(resolve => setTimeout(resolve, time));
 }
 
+// Function to check login facebook
+const checkLoginFacebook = `(async () => {
+  const delay = async (time) => {
+    await new Promise(resolve => setTimeout(resolve, time));
+  }
+  try {
+    const mail = document?.querySelector('#email')
+    const pw = document?.querySelector('#pass')
+    if (mail && pw) {
+      mail.value = 'shanghaifanyuan613@gmail.com'
+      pw.value = 'Fago1618@'
+    } else {
+      return true
+    }
+    await delay(1000)
+    const btnLogin = document?.querySelector('button[name="login"]')
+    await delay(1000)
+    btnLogin.click()
+    return true
+  } catch (error) {
+    console.log('Error checking login facebook: ', error);
+    return false
+  }
+})()`
+
 // Execute action on the app browser
 async function executeAction(action, delayTime = 1000) {
   robot.moveMouse(action.x, action.y);
@@ -342,6 +376,7 @@ const scrapeDataFromBrowser = `(async () => {
       if (elementUrlContent || elementShare) {
         await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await elementUrlContent?.focus()
+        console.log('elementUrlContent: ', elementUrlContent?.href?.split('?')[0])
         if (elementShare) {
           await elementShare.scrollIntoView({ behavior: 'smooth', block: 'center' });
           await elementShare.click()
@@ -351,9 +386,9 @@ const scrapeDataFromBrowser = `(async () => {
             elementCopy.addEventListener("click", async () => {
               try {
                 textUrlContent = await navigator.clipboard.readText();
-                console.log("✅ Nội dung đã copy:", textUrlContent);
+                console.log("Content copied: ", textUrlContent);
               } catch (err) {
-                console.log("❌ Lỗi khi lấy nội dung clipboard:", err);
+                console.log("Error copying content: ", err);
               }
             })
             await elementCopy.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -366,6 +401,7 @@ const scrapeDataFromBrowser = `(async () => {
         textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
       }
       console.log('textUrlContent: ', textUrlContent)
+      await delay(1000000)
 
       if (textContent && (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨'))) {
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
