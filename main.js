@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = requ
 const path = require('node:path')
 const robot = require('robotjs');
 const axios = require('axios');
+const jsQR = require('jsqr');
 // const { fork } = require('child_process');
 // let envRenderer = {};  // Store the reference of the data in renderer process
 
@@ -54,13 +55,12 @@ async function main() {
     })
 
     // Task main: Crawl data from group page with keyword='zalo'
-    const taskMain = async () => {
+    const runTaskMain = async () => {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
 
       // Check login status
       const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
-      console.log('isLogin: ', isLogin)
       if (!isLogin) {
         await delay(100000)
         await mainWindow.close()
@@ -87,11 +87,19 @@ async function main() {
           await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
           await delay(5000)
 
-
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
           if (!!data?.length) {
-            const saveData = await saveDataToDatabase(JSON.stringify(data))
+            // Check QR code from url
+            const dataNew = await Promise.all(data.map(async (item) => {
+              if (!item?.urlZalo) return item;
+              const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
+              if (isQRCode?.isQRCode) {
+                return item
+              }
+              return { ...item, urlZalo: '' }
+            }))
+            const saveData = await saveDataToDatabase(JSON.stringify(dataNew))
             console.log('saveDataZalo: ', saveData)
             const transformData = await transformDataByChatgpt()
             console.log('transformDataZalo: ', transformData)
@@ -143,7 +151,7 @@ async function main() {
       await mainWindow.loadFile('index.html')
     }
 
-    await Promise.all([taskMain(), runTask1])
+    await Promise.all([runTaskMain(), runTask1])
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -296,7 +304,7 @@ async function fetchGroupData(page) {
 
     return urlGroupArr;
   } catch (error) {
-    console.error('Error fetching group data: ', error);
+    console.error('Error fetching group data: ', error.message);
     return false;
   }
 }
@@ -309,6 +317,28 @@ async function saveDataToDatabase(data) {
   } catch (error) {
     console.log('Error saving data to database: ', error);
     return false;
+  }
+}
+
+// Function to check QR code from url
+async function checkQRCodeFromUrl(imageUrl) {
+  try {
+    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+    const image = await Jimp.read(response.data);
+
+    // Convert image to Uint8ClampedArray (RGBA)
+    const imageData = new Uint8ClampedArray(image?.bitmap?.data);
+
+    // Perform QR code scanning using jsQR
+    const code = jsQR(imageData, image.bitmap.width, image.bitmap.height);
+
+    if (code) {
+      return { isQRCode: true, data: code.data };
+    } else {
+      return { isQRCode: false, data: null };
+    }
+  } catch (error) {
+    return { isQRCode: false, data: null, error: error.message };
   }
 }
 
@@ -401,9 +431,11 @@ const scrapeDataFromBrowser = `(async () => {
         textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
       }
       console.log('textUrlContent: ', textUrlContent)
+      const urlImg = elementArr[i]?.querySelector('a > div.x6s0dn4.x1jx94hy.x78zum5.xdt5ytf.x6ikm8r.x10wlt62.x1n2onr6.xh8yej3 > div > div > div > img')?.src ||
+        elementArr[i]?.querySelector('a > div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6ikm8r.x10wlt62 > div.xqtp20y.x6ikm8r.x10wlt62.x1n2onr6 > div > img')?.src || null
 
       if (textContent && (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨'))) {
-        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
+        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg })
       }
 
       if (i < 25 || data.length < 25) {
@@ -509,7 +541,6 @@ const scrapeDataFromGroupPage = () => {
               await delay(1000)
             }
           }
-          await delay(1000)
           textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
         }
         console.log('textUrlContent: ', textUrlContent)
