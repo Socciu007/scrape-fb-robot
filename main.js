@@ -4,6 +4,7 @@ const path = require('node:path')
 const robot = require('robotjs');
 const axios = require('axios');
 const jsQR = require('jsqr');
+const os = require('os');
 // const { fork } = require('child_process');
 // let envRenderer = {};  // Store the reference of the data in renderer process
 
@@ -89,16 +90,24 @@ async function main() {
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+          let ipAddress = ''
+          const interfaces = os.networkInterfaces();
+          for (const iface of interfaces['WLAN']) {
+            if (iface.family === "IPv4" && !iface.internal) {
+              ipAddress = iface.address
+            }
+          }
           if (!!data?.length) {
             // Check QR code from url
             const dataNew = await Promise.all(data.map(async (item) => {
-              if (!item?.urlZalo) return item;
+              if (!item?.urlZalo) return { ...item, ipAddress };
               const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
               if (isQRCode?.isQRCode) {
                 return item
               }
-              return { ...item, urlZalo: '' }
+              return { ...item, urlZalo: '', ipAddress }
             }))
+            console.log('dataNew: ', dataNew)
             const saveData = await saveDataToDatabase(JSON.stringify(dataNew))
             console.log('saveDataZalo: ', saveData)
             const transformData = await transformDataByChatgpt()
@@ -686,7 +695,17 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 // code. You can also put them in separate files and require them here.
 ipcMain.handle('data-chat', async (event, data) => {
   if (data?.length > 0) {
-    const res1 = await saveDataToDatabase(JSON.stringify(data))
+    let ipAddress = ''
+    const interfaces = os.networkInterfaces();
+    for (const iface of interfaces['WLAN']) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        ipAddress = iface.address
+      }
+    }
+    const dataNew = data.map((c) => {
+      return { ...c, ipAddress: ipAddress }
+    })
+    const res1 = await saveDataToDatabase(JSON.stringify(dataNew))
     console.log('saveDataChat: ', res1)
 
     const res2 = await transformDataByChatgpt()
