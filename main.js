@@ -321,6 +321,8 @@ async function fetchGroupData(page) {
 // Call api to save data to database (ebvn2)
 async function saveDataToDatabase(data) {
   try {
+    // http://localhost:3000/api/moneyapi/saveDataFacebook
+    // https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook
     const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook', { data: data });
     return response?.data;
   } catch (error) {
@@ -354,6 +356,8 @@ async function checkQRCodeFromUrl(imageUrl) {
 // Call api to transform data to data useful (ebvn2)
 async function transformDataByChatgpt() {
   try {
+    // http://localhost:3000/moneyapi/transformRawFb
+    // https://vn2.dadaex.cn/api/moneyapi/transformRawFb
     const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/transformRawFb', { page: 1 });
     return response?.data;
   } catch (error) {
