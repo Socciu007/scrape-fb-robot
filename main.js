@@ -107,7 +107,7 @@ async function main() {
               }
               return { ...item, urlZalo: '', ipAddress }
             }))
-            console.log('dataNew: ', dataNew)
+
             const saveData = await saveDataToDatabase(JSON.stringify(dataNew))
             console.log('saveDataZalo: ', saveData)
             const transformData = await transformDataByChatgpt()
@@ -139,7 +139,7 @@ async function main() {
         for (const url of urlGroupData) {
           console.log('url: ', url)
           if (!url.includes('https://www.facebook.com')) continue;
-          await mainWindow.loadURL(url)
+          await mainWindow.loadURL(url.split('?')[0])
           await delay(3000)
 
           // Scrape data from browser
@@ -611,7 +611,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
       }
 
       // Click button see more to load more chat
-      const btnSeeMore = document?.querySelector('div.x9f619.x1n2onr6.x78zum5.xdt5ytf.x193iq5w.x1t2pt76.x1xzczws.x1vjfegm.xcrg951.xilr8tx.xs83m0k.xczebs5.x1cvmir6 > div > div > div > div.x78zum5.xdt5ytf.x1iyjqo2.x5yr21d.x6ikm8r.x10wlt62 > div > div.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6 > div:nth-child(2) > div > div.xod5an3.x1xmf6yo.x1swvt13.x1pi30zi > div > div')
+      const btnSeeMore = document?.querySelector('div.xod5an3.x1xmf6yo.x1swvt13.x1pi30zi > div > div > div.x6s0dn4.x78zum5.xl56j7k.x1608yet.xljgi0e.x1e0frkt > div')
       if (btnSeeMore) {
         btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' })
         btnSeeMore.click()

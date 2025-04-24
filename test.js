@@ -39,7 +39,10 @@
 //   })
 //   .catch(err => console.error(err));
 
+const { defaultFormats } = require("jimp");
 const os = require("os");
+const { execPath, setFdLimit } = require("process");
+const { duplexPair } = require("stream");
 
 const interfaces = os.networkInterfaces();
 for (const iface of interfaces['WLAN']) {
@@ -47,4 +50,3 @@ for (const iface of interfaces['WLAN']) {
     console.log("Local IP:", iface.address)
   }
 }
-
