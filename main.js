@@ -108,7 +108,18 @@ async function main() {
               return { ...item, urlZalo: '', ipAddress }
             }))
 
-            const saveData = await saveDataToDatabase(JSON.stringify(dataNew))
+            // Remove duplicate data with field 'idAccount' and 'contactUs'
+            const map = new Map();
+            const dataUnique = dataNew.filter((item) => {
+              const key = `${item.idAccount}-${item.contactUs}`;
+              if (!map.has(key)) {
+                map.set(key, true);
+                return true;
+              }
+              return false;
+            });
+
+            const saveData = await saveDataToDatabase(JSON.stringify(dataUnique))
             console.log('saveDataZalo: ', saveData)
             const transformData = await transformDataByChatgpt()
             console.log('transformDataZalo: ', transformData)
@@ -145,8 +156,22 @@ async function main() {
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
           if (!!data?.length) {
-            const saveData = await saveDataToDatabase(JSON.stringify(data))
+            const map = new Map();
+
+            const dataUnique = data.filter((item) => {
+              const key = `${item.idAccount}-${item.contactUs}`;
+              if (!map.has(key)) {
+                map.set(key, true);
+                return true;
+              }
+              return false;
+            });
+
+            // Save data to database
+            const saveData = await saveDataToDatabase(JSON.stringify(dataUnique))
             console.log('saveDataGroup: ', saveData)
+
+            // Transform data by chatgpt
             const transformData = await transformDataByChatgpt()
             console.log('transformData: ', transformData)
           }
