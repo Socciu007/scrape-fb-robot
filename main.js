@@ -731,10 +731,18 @@ ipcMain.handle('data-chat', async (event, data) => {
         ipAddress = iface.address
       }
     }
-    const dataNew = data.map((c) => {
-      return { ...c, ipAddress: ipAddress }
-    })
-    const res1 = await saveDataToDatabase(JSON.stringify(dataNew))
+    // Remove duplicate data
+    // Remove duplicate data with field 'idAccount' and 'contactUs'
+    const map = new Map();
+    const dataUnique = dataNew.filter((item) => {
+      const key = `${item.contactUs}`;
+      if (!map.has(key)) {
+        map.set(key, true);
+        return true;
+      }
+      return false;
+    });
+    const res1 = await saveDataToDatabase(JSON.stringify(dataUnique))
     console.log('saveDataChat: ', res1)
 
     const res2 = await transformDataByChatgpt()
