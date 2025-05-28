@@ -552,6 +552,7 @@ const scrapeDataFromGroupPage = () => {
         if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x1swvt13.x1pi30zi.x18d9i69')?.textContent || ''
         const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
         const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
+        const urlFacebook = 'https://www.facebook.com/' + textIdAccount
         await delay(1000)
         const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
           elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
@@ -584,7 +585,7 @@ const scrapeDataFromGroupPage = () => {
         console.log('textUrlContent: ', textUrlContent)
 
         if (textContent) {
-          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
+          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlFacebook: urlFacebook })
         }
 
         if (i < 25 || data.length < 25) {
@@ -734,7 +735,7 @@ ipcMain.handle('data-chat', async (event, data) => {
     // Remove duplicate data
     // Remove duplicate data with field 'idAccount' and 'contactUs'
     const map = new Map();
-    const dataUnique = dataNew.filter((item) => {
+    const dataUnique = data.filter((item) => {
       const key = `${item.contactUs}`;
       if (!map.has(key)) {
         map.set(key, true);
