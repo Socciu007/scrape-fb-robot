@@ -119,8 +119,13 @@ async function main() {
               return false;
             });
 
-            const saveData = await saveDataToDatabase(JSON.stringify(dataUnique))
-            console.log('saveDataZalo: ', saveData)
+            // Add urlFacebook to dataUnique
+            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
+            console.log('dataSave: ', dataSave)
+
+            const saveData = await saveDataToDatabase(JSON.stringify(dataSave))
+            console.log('Save data to db from crawl on group page FB.')
+
             const transformData = await transformDataByChatgpt()
             console.log('transformDataZalo: ', transformData)
           }
@@ -167,13 +172,15 @@ async function main() {
               return false;
             });
 
+            // Add urlFacebook to dataUnique
+            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` }));
+            console.log('dataSave: ', dataSave)
+
             // Save data to database
-            const saveData = await saveDataToDatabase(JSON.stringify(dataUnique))
-            console.log('saveDataGroup: ', saveData)
+            const saveData = await saveDataToDatabase(JSON.stringify(dataSave))
 
             // Transform data by chatgpt
             const transformData = await transformDataByChatgpt()
-            console.log('transformData: ', transformData)
           }
 
           await delay(1000) // Wait for 10 seconds
@@ -552,7 +559,6 @@ const scrapeDataFromGroupPage = () => {
         if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x1swvt13.x1pi30zi.x18d9i69')?.textContent || ''
         const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
         const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
-        const urlFacebook = 'https://www.facebook.com/' + textIdAccount
         await delay(1000)
         const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
           elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
@@ -585,7 +591,7 @@ const scrapeDataFromGroupPage = () => {
         console.log('textUrlContent: ', textUrlContent)
 
         if (textContent) {
-          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlFacebook: urlFacebook })
+          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
         }
 
         if (i < 25 || data.length < 25) {
@@ -732,7 +738,7 @@ ipcMain.handle('data-chat', async (event, data) => {
         ipAddress = iface.address
       }
     }
-    // Remove duplicate data
+
     // Remove duplicate data with field 'idAccount' and 'contactUs'
     const map = new Map();
     const dataUnique = data.filter((item) => {
@@ -743,7 +749,11 @@ ipcMain.handle('data-chat', async (event, data) => {
       }
       return false;
     });
-    const res1 = await saveDataToDatabase(JSON.stringify(dataUnique))
+
+    // Add ipAddress to dataUnique
+    const dataSave = dataUnique.map(item => ({ ...item, ipAddress: ipAddress })).filter(item => !(item.contactUs === '' || item.contactUs === null || item.contactUs === null));
+
+    const res1 = await saveDataToDatabase(JSON.stringify(dataSave))
     console.log('saveDataChat: ', res1)
 
     const res2 = await transformDataByChatgpt()
