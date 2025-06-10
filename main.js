@@ -90,6 +90,7 @@ async function main() {
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser)
+          if (!data?.length) continue;
           let ipAddress = ''
           const interfaces = os.networkInterfaces();
           for (const iface of interfaces['WLAN']) {
@@ -107,6 +108,7 @@ async function main() {
               }
               return { ...item, urlZalo: '', ipAddress }
             }))
+            console.log('dataNew: ', dataNew)
 
             // Remove duplicate data with field 'idAccount' and 'contactUs'
             const map = new Map();
@@ -123,11 +125,13 @@ async function main() {
             const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
             console.log('dataSave: ', dataSave)
 
-            const saveData = await saveDataToDatabase(JSON.stringify(dataSave))
-            console.log('Save data to db from crawl on group page FB.')
+            if (dataSave?.length) {
+              const saveData = await saveDataToDatabase(JSON.stringify(dataSave))
+              console.log('Save data to db from crawl on group page FB.', saveData)
 
-            const transformData = await transformDataByChatgpt()
-            console.log('transformDataZalo: ', transformData)
+              const transformData = await transformDataByChatgpt()
+              console.log('transformDataZalo: ', transformData)
+            }
           }
 
           await delay(1000) // Wait for 10 seconds
@@ -411,22 +415,23 @@ const scrapeDataFromBrowser = `(async () => {
 
     // Get text of group name
     await delay(1000)
-    const elementGroupName = document?.querySelector('div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np.x1sy10c2.xktsk01.xod5an3.x1d52u69 > div > div > div > div > div:nth-child(2) > span > span')?.textContent
+    const elementGroupName = document?.querySelector('div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np > div > div > div > div > div:nth-child(2) > span > span')?.textContent
     const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
+    console.log('Group Name-----: ', groupName)
 
     await delay(1000)
     let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
-    // console.log('elementArr: ', elementArr.length)
     if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
     let data = []
     for (let i = 0; i < elementArr.length; i++) {
       await delay(1000)
       // Scroll to the element ith
+      console.log('elementArr[i]: ', elementArr.length, i)
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       await delay(1000)
-      const btnSeeMore = elementArr[i]?.querySelector('.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xt0psk2.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1a2a7pz.x1sur9pj.xkrqix3.xzsf02u.x1s688f[role="button"]')
+      const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]')
       if (btnSeeMore) {
         btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
         btnSeeMore.click()
@@ -435,55 +440,39 @@ const scrapeDataFromBrowser = `(async () => {
 
       // Scrape text content of the element
       await delay(1000)
-      let textContent = elementArr[i]?.querySelector('.x1yx25j4.x13crsa5.x1rxj1xn.xxpdul3.x6x52a7')?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1l90r2v.x1pi30zi.x1swvt13.x1iorvi4')?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[2]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[1]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[0]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelector('.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs.x126k92a')?.textContent
+      let textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div:nth-child(5) > div > div > div > div > div > div > div > div > div > div > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div:nth-child(3) > div > div > div > div')?.textContent
+      console.log('Text Content-------: ', textContent)
       const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
-      const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
+      const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')?.[6] || ''
+      const urlAvatar = elementArr[i]?.querySelector('g > image')?.href?.baseVal || ''
       await delay(1000)
       const elementUrlContent = elementArr[i]?.querySelectorAll('span:nth-child(1) > span > span > a[role="link"]')[2] ||
         elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
-      const elementShare = elementArr[i]?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd > div > div > div:nth-child(4) > div > div > div > div > div.xq8finb.x16n37ib > div > div:nth-child(4) > div > div.x9f619.x1ja2u2z.x78zum5.x1n2onr6.x1r8uery.x1iyjqo2.xs83m0k.xeuugli.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.xn6708d.x1ye3gou.xexx8yu.xcud41i.x139jcc6.x4cne27.xifccgj.xn3w4p2.xuxw1ft > div:nth-child(1) > i')
       let textUrlContent = ''
-      if (elementUrlContent || elementShare) {
+      console.log('textAccount: ', textAccount)
+      console.log('textIdAccount: ', textIdAccount)
+      console.log('urlAvatar: ', urlAvatar)
+      if (elementUrlContent) {
         await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await elementUrlContent?.focus()
-        console.log('elementUrlContent: ', elementUrlContent?.href?.split('?')[0])
-        if (elementShare) {
-          await elementShare.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          await elementShare.click()
-          await delay(1000)
-          const elementCopy = document?.querySelector('div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div > div > div.xb57i2i.x1q594ok.x5lxg6s.x78zum5.xdt5ytf.x6ikm8r.x1ja2u2z.x1pq812k.x1rohswg.xfk6m8.x1yqm8si.xjx87ck.xx8ngbg.xwo3gff.x1n2onr6.x1oyok0e.x1odjw0f.x1iyjqo2.xy5w88m > div.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6.xaci4zi.x129vozr > div > div > div > div:nth-child(6) > div > div > div > div > div > div:nth-child(3) > div > div.x1n2onr6.x1ja2u2z.x9f619.x78zum5.xdt5ytf.x193iq5w.x1l7klhg.x1iyjqo2.xs83m0k.x2lwn1j.x1y1aw1k.xwib8y2 > div > div:nth-child(1) > div > i');
-          if (elementCopy) {
-            elementCopy.addEventListener("click", async () => {
-              try {
-                textUrlContent = await navigator.clipboard.readText();
-                console.log("Content copied: ", textUrlContent);
-              } catch (err) {
-                console.log("Error copying content: ", err);
-              }
-            })
-            await elementCopy.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await elementCopy.click()
-            await delay(1000)
-            // await window.electronBridge.requireAction('paste')
-          }
-        }
         await delay(1000)
-        textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
+        textUrlContent = (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
       }
       console.log('textUrlContent: ', textUrlContent)
+
       const urlImg = elementArr[i]?.querySelector('a > div.x6s0dn4.x1jx94hy.x78zum5.xdt5ytf.x6ikm8r.x10wlt62.x1n2onr6.xh8yej3 > div > div > div > img')?.src ||
         elementArr[i]?.querySelector('a > div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6ikm8r.x10wlt62 > div.xqtp20y.x6ikm8r.x10wlt62.x1n2onr6 > div > img')?.src || null
-
+      console.log('urlImg: ', urlImg)
       if (textContent && (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨'))) {
-        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg })
+        console.log('-----textContent----: ')
+        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
 
-      if (i < 25 || data.length < 25) {
+      if (i < 20 || data.length < 20) {
         await delay(2000)
         elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
       } else {
@@ -559,6 +548,7 @@ const scrapeDataFromGroupPage = () => {
         if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x1swvt13.x1pi30zi.x18d9i69')?.textContent || ''
         const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
         const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
+        const urlAvatar = elementArr[i]?.querySelector('g > image').href.baseVal || ''
         await delay(1000)
         const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
           elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
@@ -591,7 +581,7 @@ const scrapeDataFromGroupPage = () => {
         console.log('textUrlContent: ', textUrlContent)
 
         if (textContent) {
-          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent })
+          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlAvatar: urlAvatar })
         }
 
         if (i < 25 || data.length < 25) {
