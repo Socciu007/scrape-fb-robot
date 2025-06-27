@@ -4,7 +4,7 @@ const saveDataFb = async (data) => {
   try {
     // http://localhost:3000/moneyapi/userFb
     // https://vn2.dadaex.cn/api/moneyapi/userFb
-    const res = await axios.post('http://localhost:3000/moneyapi/userFb', data)
+    const res = await axios.post('https://vn2.dadaex.cn/api/moneyapi/userFb', data)
     return res?.data
   } catch (error) {
     return null
