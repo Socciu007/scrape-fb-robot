@@ -2,9 +2,9 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = require('electron')
 const path = require('node:path')
 const robot = require('robotjs');
-const axios = require('axios');
 const jsQR = require('jsqr');
 const os = require('os');
+const { saveDataFb, fetchGroupData, transformDataByChatgpt, saveDataToDatabase, serviceGemini } = require('./services');
 // const { fork } = require('child_process');
 // let envRenderer = {};  // Store the reference of the data in renderer process
 
@@ -108,7 +108,6 @@ async function main() {
               }
               return { ...item, urlZalo: '', ipAddress }
             }))
-            console.log('dataNew: ', dataNew)
 
             // Remove duplicate data with field 'idAccount' and 'contactUs'
             const map = new Map();
@@ -125,12 +124,24 @@ async function main() {
             const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
             console.log('dataSave: ', dataSave)
 
-            if (dataSave?.length) {
-              const saveData = await saveDataToDatabase(JSON.stringify(dataSave))
-              console.log('Save data to db from crawl on group page FB.', saveData)
+            if (!!dataSave?.length) {
+              // Handle data by Gemini service
+              // const resultGemini = await serviceGemini(dataSave, 'filter')
+              // if (resultGemini && !!resultGemini?.length) {
+              //   dataSave = resultGemini.map(item => ({ ...item, chatGpt: true }))
+              // }
+              // console.log('Data Gemini: ', dataSave)
 
-              const transformData = await transformDataByChatgpt()
-              console.log('transformDataZalo: ', transformData)
+              for (const item of dataSave) {
+                const response = await saveDataFb(item)
+                console.log('response: ', response)
+              }
+              // await Promise.all(dataSave.map(async (item) => {
+              //   const user = await saveDataFb(item)
+              //   console.log('user: ', user)
+              // }));
+              // const transformData = await transformDataByChatgpt()
+              // console.log('Data transform by Gemini: ', transformData)
             }
           }
 
@@ -148,12 +159,19 @@ async function main() {
       // Load the url of the facebook (Login FB)
       await mainWindow.loadURL('https://www.facebook.com/')
 
+      // Check login status
+      const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
+      if (!isLogin) {
+        await delay(100000)
+        await mainWindow.close()
+        return
+      };
+
       // Loop fetch group data by page
       const hasGroupData = true
       let page = 0
       while (hasGroupData) {
         const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-        console.log('Page: ', page + 1)
         if (!urlGroupData) break
 
         for (const url of urlGroupData) {
@@ -166,6 +184,13 @@ async function main() {
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
           if (!!data?.length) {
             const map = new Map();
+            let ipAddress = ''
+            const interfaces = os.networkInterfaces();
+            for (const iface of interfaces['WLAN']) {
+              if (iface.family === "IPv4" && !iface.internal) {
+                ipAddress = iface.address
+              }
+            }
 
             const dataUnique = data.filter((item) => {
               const key = `${item.idAccount}-${item.contactUs}`;
@@ -177,14 +202,14 @@ async function main() {
             });
 
             // Add urlFacebook to dataUnique
-            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` }));
-            console.log('dataSave: ', dataSave)
+            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}`, ipAddress: ipAddress }));
+            console.log('Length dataSave: ', dataSave)
 
-            // Save data to database
-            const saveData = await saveDataToDatabase(JSON.stringify(dataSave))
-
-            // Transform data by chatgpt
-            const transformData = await transformDataByChatgpt()
+            // Save user fb to database
+            await Promise.all(dataSave.map(async (item) => {
+              const user = await saveDataFb(item)
+              console.log('user: ', user)
+            }));
           }
 
           await delay(1000) // Wait for 10 seconds
@@ -332,41 +357,6 @@ async function executeAction(action, delayTime = 1000) {
   await delay(delayTime);
 }
 
-// Fetch the data (group facebook data) from the server CRM
-async function fetchGroupData(page) {
-  try {
-    // Fetch data from server
-    const response = await axios.get(`https://www.dadaex.cn/api/crm/groupChat/getGroupListVn?page=${page}&active=&name=&user=&account=&qq=&createTime=&scren=fanyuan`);
-
-    // Check if fetch data error or group data is empty
-    if (response?.data?.status !== 200 || !response?.data?.data?.data?.length) return false;
-
-    // Filter the data by platform Facebook
-    const groupFbData = response?.data?.data?.data?.filter((g) => g?.platform === 'Facebook');
-
-    // Map the data to get the url of the group facebook
-    const urlGroupArr = groupFbData?.map((g) => g?.account?.replace('/members', ''));
-
-    return urlGroupArr;
-  } catch (error) {
-    console.error('Error fetching group data: ', error.message);
-    return false;
-  }
-}
-
-// Call api to save data to database (ebvn2)
-async function saveDataToDatabase(data) {
-  try {
-    // http://localhost:3000/api/moneyapi/saveDataFacebook
-    // https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook
-    const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook', { data: data });
-    return response?.data;
-  } catch (error) {
-    console.log('Error saving data to database: ', error);
-    return false;
-  }
-}
-
 // Function to check QR code from url
 async function checkQRCodeFromUrl(imageUrl) {
   try {
@@ -386,19 +376,6 @@ async function checkQRCodeFromUrl(imageUrl) {
     }
   } catch (error) {
     return { isQRCode: false, data: null, error: error.message };
-  }
-}
-
-// Call api to transform data to data useful (ebvn2)
-async function transformDataByChatgpt() {
-  try {
-    // http://localhost:3000/moneyapi/transformRawFb
-    // https://vn2.dadaex.cn/api/moneyapi/transformRawFb
-    const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/transformRawFb', { page: 1 });
-    return response?.data;
-  } catch (error) {
-    console.log('Error transforming data: ', error);
-    return false;
   }
 }
 
@@ -440,7 +417,9 @@ const scrapeDataFromBrowser = `(async () => {
 
       // Scrape text content of the element
       await delay(1000)
-      let textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
+      let textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[2]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
@@ -453,9 +432,6 @@ const scrapeDataFromBrowser = `(async () => {
       const elementUrlContent = elementArr[i]?.querySelectorAll('span:nth-child(1) > span > span > a[role="link"]')[2] ||
         elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
       let textUrlContent = ''
-      console.log('textAccount: ', textAccount)
-      console.log('textIdAccount: ', textIdAccount)
-      console.log('urlAvatar: ', urlAvatar)
       if (elementUrlContent) {
         await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await elementUrlContent?.focus()
@@ -466,8 +442,7 @@ const scrapeDataFromBrowser = `(async () => {
 
       const urlImg = elementArr[i]?.querySelector('a > div.x6s0dn4.x1jx94hy.x78zum5.xdt5ytf.x6ikm8r.x10wlt62.x1n2onr6.xh8yej3 > div > div > div > img')?.src ||
         elementArr[i]?.querySelector('a > div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6ikm8r.x10wlt62 > div.xqtp20y.x6ikm8r.x10wlt62.x1n2onr6 > div > img')?.src || null
-      console.log('urlImg: ', urlImg)
-      if (textContent && (textContent.toLowerCase().includes('Zalo'.toLowerCase()) || textContent.includes('𝐙𝐚𝐥𝐨'))) {
+      if (textContent) {
         console.log('-----textContent----: ')
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
@@ -524,13 +499,14 @@ const scrapeDataFromGroupPage = () => {
       if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
       let data = []
-      for (let i = 0; i < elementArr.length; i++) {
+      for (let i = 0; i < elementArr?.length; i++) {
         await delay(1000)
         // Scroll to the element ith
         elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         await delay(1000)
-        const btnSeeMore = elementArr[i]?.querySelector('.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xt0psk2.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1a2a7pz.x1sur9pj.xkrqix3.xzsf02u.x1s688f[role="button"]')
+        const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]') ||
+          elementArr[i]?.querySelector('div > div > span > div > div:nth-child(3) > div > div')
         if (btnSeeMore) {
           btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
           btnSeeMore.click()
@@ -539,44 +515,27 @@ const scrapeDataFromGroupPage = () => {
 
         // Scrape text content of the element
         await delay(1000)
-        let textContent = elementArr[i]?.querySelector('.x1yx25j4.x13crsa5.x1rxj1xn.xxpdul3.x6x52a7')?.textContent
-        if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1l90r2v.x1pi30zi.x1swvt13.x1iorvi4')?.textContent
-        if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[2]?.textContent
-        if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[1]?.textContent
-        if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')[0]?.textContent
-        if (!textContent) textContent = elementArr[i]?.querySelector('.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs.x126k92a')?.textContent
-        if (!textContent) textContent = elementArr[i]?.querySelector('.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x1swvt13.x1pi30zi.x18d9i69')?.textContent || ''
+        let textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[2]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div:nth-child(5) > div > div > div > div > div > div > div > div > div > div > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div:nth-child(3) > div > div > div > div')?.textContent
+        console.log('Text Content-------: ', textContent)
         const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
         const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')[6] || ''
-        const urlAvatar = elementArr[i]?.querySelector('g > image').href.baseVal || ''
+        const urlAvatar = elementArr[i]?.querySelector('g > image')?.href?.baseVal || ''
         await delay(1000)
+
         const elementUrlContent = elementArr[i]?.querySelector('span:nth-child(1) > span > span > a[role="link"]') ||
           elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
-        const elementShare = elementArr[i]?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd > div > div > div:nth-child(4) > div > div > div > div > div.xq8finb.x16n37ib > div > div:nth-child(4) > div > div.x9f619.x1ja2u2z.x78zum5.x1n2onr6.x1r8uery.x1iyjqo2.xs83m0k.xeuugli.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.xn6708d.x1ye3gou.xexx8yu.xcud41i.x139jcc6.x4cne27.xifccgj.xn3w4p2.xuxw1ft > div:nth-child(1) > i')
         let textUrlContent = ''
-        if (elementUrlContent || elementShare) {
+        if (elementUrlContent) {
           await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await delay(1000)
           await elementUrlContent?.focus()
-          if (elementShare) {
-            await elementShare.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await elementShare.click()
-            await delay(1000)
-            const elementCopy = document?.querySelector('div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div > div > div.xb57i2i.x1q594ok.x5lxg6s.x78zum5.xdt5ytf.x6ikm8r.x1ja2u2z.x1pq812k.x1rohswg.xfk6m8.x1yqm8si.xjx87ck.xx8ngbg.xwo3gff.x1n2onr6.x1oyok0e.x1odjw0f.x1iyjqo2.xy5w88m > div.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6.xaci4zi.x129vozr > div > div > div > div:nth-child(6) > div > div > div > div > div > div:nth-child(3) > div > div.x1n2onr6.x1ja2u2z.x9f619.x78zum5.xdt5ytf.x193iq5w.x1l7klhg.x1iyjqo2.xs83m0k.x2lwn1j.x1y1aw1k.xwib8y2 > div > div:nth-child(1) > div > i');
-            if (elementCopy) {
-              elementCopy.addEventListener("click", async () => {
-                try {
-                  textUrlContent = await navigator.clipboard.readText();
-                  console.log("✅ Nội dung đã copy:", textUrlContent);
-                } catch (err) {
-                  console.log("❌ Lỗi khi lấy nội dung clipboard:", err);
-                }
-              })
-              await elementCopy.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              await elementCopy.click()
-              await delay(1000)
-            }
-          }
-          textUrlContent = textUrlContent || (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
+          textUrlContent = (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
         }
         console.log('textUrlContent: ', textUrlContent)
 
@@ -590,8 +549,6 @@ const scrapeDataFromGroupPage = () => {
         } else {
           break
         }
-
-        console.log('data: ', data.length)
       }
 
       // Remove duplicate comment and add field contactUs
@@ -609,6 +566,7 @@ const scrapeDataFromGroupPage = () => {
       // Remove data if contactUs is empty
       data = data.filter((c) => c.contactUs)
 
+      console.log('data: ', data.length)
       return data
     } catch (error) {
       console.log('Error scraping data from browser: ', error)
@@ -625,15 +583,24 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
     }
     try {
       // Click button chat communication
-      const btnChatComunication = document?.querySelector('div.x1ey2m1c.x9f619.xds687c.x17qophe.x10l6tqk.x13vifvy > div:nth-child(3)')
+      const btnChatComunication = document?.querySelector('div.x1ey2m1c.x9f619.xtijo5x.x1o0tod.x10l6tqk.x13vifvy > div:nth-child(5) > div > div > span > span')
       console.log('btnChatComunication: ', btnChatComunication)
       if (btnChatComunication) {
-        btnChatComunication.querySelector('span[dir="auto"]').click()
+        btnChatComunication.click()
         await delay(14000)
+      } else {
+        const btnChatComunicationMore = document?.querySelector('div.x1ey2m1c.x9f619.xtijo5x.x1o0tod.x10l6tqk.x13vifvy > div.x1rg5ohu.x6ikm8r.x10wlt62.x1n2onr6.x16dsc37.xc9qbxq.x1useyqa > div > div > div > div')
+        btnChatComunicationMore.click()
+        await delay(3000)
+        const btnCommunication = document?.querySelector('div > div > div.x1ey2m1c.xtijo5x.x1o0tod.xg01cxk.x47corl.x10l6tqk.x13vifvy.x1ebt8du.x19991ni.x1dhq9h.xbxg5aw.xxh58k5.xzw787d.xk59nb')
+        if (btnCommunication) {
+          btnCommunication.click()
+          await delay(14000)
+        }
       }
 
       // Click button see more to load more chat
-      const btnSeeMore = document?.querySelector('div.xod5an3.x1xmf6yo.x1swvt13.x1pi30zi > div > div > div.x6s0dn4.x78zum5.xl56j7k.x1608yet.xljgi0e.x1e0frkt > div')
+      const btnSeeMore = document?.querySelector('div.html-div.xdj266r.xat24cr.xexx8yu.xyri2b.x18d9i69.x1c1uobl.x6s0dn4.x78zum5.xl56j7k.x14ayic.xwyz465.x1e0frkt > div > span > span')
       if (btnSeeMore) {
         btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' })
         btnSeeMore.click()
@@ -641,7 +608,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
       }
 
       // Get list chat and check if the list chat is empty
-      const listChat = document?.querySelectorAll('[role="grid"] > div > .html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd')
+      const listChat = document?.querySelectorAll('[role="grid"] > div > .html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')
       console.log('listChat: ', listChat.length)
       if (!listChat || !listChat.length) return false
 
@@ -656,11 +623,11 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
         console.log('urlMessage: ', urlMessage)
 
         // Click button break to break the chat
-        const btnBreak = document?.querySelector('div:nth-child(2) > div > div > div > div.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.x2lah0s.x193iq5w.x5ib6vp.xc73u3c.xyamay9.x1l90r2v > div > div > div.x6s0dn4.x78zum5.xl56j7k.x1608yet.xljgi0e.x1e0frkt')
+        const btnBreak = document?.querySelector('div > div > div > div.xdg88n9.x10l6tqk.x1tk7jg1.x1vjfegm > div > i')
         if (btnBreak) break
 
         // Get name chat
-        const textNameChat = document?.querySelector('div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6s0dn4.x78zum5.x193iq5w > span > span > span.html-span')?.textContent || ''
+        const textNameChat = document?.querySelector('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl.x6s0dn4.x78zum5.x193iq5w > span > span > span.html-span')?.textContent || ''
 
         // Get list content chat
         let listContentChat = document?.querySelectorAll('div.x78zum5.xdt5ytf.x1iyjqo2.x6ikm8r.x1odjw0f.xish69e.x16o0dkt > div > div')
@@ -670,8 +637,8 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
         let countLoop = 0
         let lengthListContentChat = listContentChat.length
         for (let j = lengthListContentChat - 1; j >= 0; j--) {
-          const textChat = listContentChat[j]?.querySelector('.html-div.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x1gslohp.x11i5rnm.x12nagc.x1mh8g0r.x1yc453h.x126k92a.x18lvrbx')?.textContent || ''
-          const timeChat = listContentChat[j]?.querySelector('.html-div.xexx8yu.x4uap5.x18d9i69.xkhd6sd.xr1yuqi.xkrivgy.x4ii5y1.x1gryazu.x1ekjcvx.x2b8uid.x13faqbe')?.textContent || ''
+          const textChat = listContentChat[j]?.querySelector('.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl.xeuugli.x1vjfegm')?.textContent || ''
+          const timeChat = listContentChat[j]?.querySelector('.html-div.xexx8yu.xyri2b.x18d9i69.x1c1uobl.xr1yuqi.x11t971q.x4ii5y1.xvc5jky.x1ekjcvx.x2b8uid.x13faqbe')?.textContent || ''
 
           // Check if the text chat is not empty
           if (textChat && textChat.trim() !== '') {
