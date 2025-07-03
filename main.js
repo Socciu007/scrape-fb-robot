@@ -125,23 +125,10 @@ async function main() {
             console.log('dataSave: ', dataSave)
 
             if (!!dataSave?.length) {
-              // Handle data by Gemini service
-              // const resultGemini = await serviceGemini(dataSave, 'filter')
-              // if (resultGemini && !!resultGemini?.length) {
-              //   dataSave = resultGemini.map(item => ({ ...item, chatGpt: true }))
-              // }
-              // console.log('Data Gemini: ', dataSave)
-
               for (const item of dataSave) {
                 const response = await saveDataFb(item)
                 console.log('response: ', response)
               }
-              // await Promise.all(dataSave.map(async (item) => {
-              //   const user = await saveDataFb(item)
-              //   console.log('user: ', user)
-              // }));
-              // const transformData = await transformDataByChatgpt()
-              // console.log('Data transform by Gemini: ', transformData)
             }
           }
 
@@ -461,11 +448,15 @@ const scrapeDataFromBrowser = `(async () => {
     data = data.filter((item, index, self) =>
       index === self.findIndex((c) => c.content === item.content)
     ).map((c) => {
-      const contactUs = Array.from(new Set(c?.content?.match(/\\+?\\d{1,3}(?:[.\\s]?\\d{1,4})+|\\b0\\d{9}\\b/g)
-        ?.filter((num, index, self) =>
-          self.indexOf(num) === index && num.replace(/\\D/g, '').length >= 9
-        ) || []))
-        ?.join(', ') || '';
+      const contactUs = Array.from(new Set(
+        c?.content?.match(/\+?\d{1,3}(?:[.\s]?\d{1,4})+|\b0\d{9}\b/g)
+          ?.filter((num, index, self) =>
+            self.indexOf(num) === index && num.replace(/\D/g, '').length >= 9
+          )
+          ?.map(num => num.match(/\d+/g)?.join(''))
+          .filter(Boolean)
+        || []
+      )).join(', ') || '';
       return { ...c, contactUs };
     })
 
@@ -664,11 +655,15 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
           item?.content?.trim() !== '' &&
           index === self.findIndex((c) => c?.content?.toLowerCase()?.trim() === item?.content?.toLowerCase()?.trim())
         ).map((c) => {
-          const contactUs = Array.from(new Set(c?.content?.match(/\\+?\\d{1,3}(?:[.\\s]?\\d{1,4})+|\\b0\\d{9}\\b/g)
-            ?.filter((num, index, self) =>
-              self.indexOf(num) === index && num.replace(/\\D/g, '').length >= 9
-            ) || []))
-            ?.join(', ') || '';
+          const contactUs = Array.from(new Set(
+            c?.content?.match(/\+?\d{1,3}(?:[.\s]?\d{1,4})+|\b0\d{9}\b/g)
+              ?.filter((num, index, self) =>
+                self.indexOf(num) === index && num.replace(/\D/g, '').length >= 9
+              )
+              ?.map(num => num.match(/\d+/g)?.join(''))
+              .filter(Boolean)
+            || []
+          )).join(', ') || '';
           return { ...c, contactUs };
         })
 
