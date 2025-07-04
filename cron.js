@@ -4,7 +4,7 @@ const cron = require('node-cron');
 const timeTaskScrapeFb = async (task) => {
   try {
     // Run task at 6:30 AM every day (minute/hour/dayOfMonth/month/dayOfWeek)
-    const taskAt = cron.schedule('01 12 * * *', async () => {
+    const taskAt = cron.schedule('30 9 * * *', async () => {
       try {
         await task(); // Call the async task
       } catch (err) {
