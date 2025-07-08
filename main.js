@@ -8,31 +8,23 @@ const { timeTaskScrapeFb } = require('./cron');
 
 async function main() {
   // console.log('Robot version: ', process.versions);
-
+  // Create the browser window.
+  const mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    x: 0,
+    y: 0,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      session: session.fromPartition('persist:Natalie@sfyf.cn')
+    },
+  })
+  // Load the url of the facebook (Login FB)
   
   // Task main: Crawl data from group page with keyword='zalo'
   const runTaskMain = async () => {
-    try {
-      
-    } catch (error) {
-      console.error('Error in runTaskMain: ', error);
-      return;
-      
-    }
-    // Create the browser window.
-    const mainWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
-      x: 0,
-      y: 0,
-      webPreferences: {
-        preload: path.join(__dirname, 'preload.js'),
-        nodeIntegration: false,
-        contextIsolation: true,
-        session: session.fromPartition('persist:shanghaifanyuan613@gmail.com')
-      },
-    })
-    // Load the url of the facebook (Login FB)
     await mainWindow.loadURL('https://www.facebook.com/')
 
     // Check login status
@@ -118,115 +110,115 @@ async function main() {
   }
 
   // Load the index.html in project of the desktop app.
-  // await mainWindow.loadFile('index.html')
+  await mainWindow.loadFile('index.html')
 
   // Run task scrape fb
   await timeTaskScrapeFb(runTaskMain);
 
   // IPC event listener (Listen data from renderer process)
-  // ipcMain.handle("data-input", async (event, data) => {
-  //   console.log("Received data from renderer: ", data);
-  //   // await mainWindow.setBounds({ x: -2000, y: -2000, width: 1200, height: 600 });
+  ipcMain.handle("data-input", async (event, data) => {
+    console.log("Received data from renderer: ", data);
+    // await mainWindow.setBounds({ x: -2000, y: -2000, width: 1200, height: 600 });
 
-  //   const task1 = async (data) => {
-  //     const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
-  //     if (!window1) return;
+    const task1 = async (data) => {
+      const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
+      if (!window1) return;
 
-  //     // Load the url of the facebook (Login FB)
-  //     await window1.loadURL('https://www.facebook.com/messages/t')
+      // Load the url of the facebook (Login FB)
+      await window1.loadURL('https://www.facebook.com/messages/t')
 
-  //     // Get the url of the message
-  //     await delay(20000)
-  //     // await executeAction({ type: 'click', x: 185, y: 546 });
-  //     // await delay(3000)
-  //     await window1.webContents.executeJavaScript(scrapeDataFromMessagePage(data.account))
+      // Get the url of the message
+      await delay(20000)
+      // await executeAction({ type: 'click', x: 185, y: 546 });
+      // await delay(3000)
+      await window1.webContents.executeJavaScript(scrapeDataFromMessagePage(data.account))
 
-  //     // Close the window
-  //     // window1.close();
-  //   }
+      // Close the window
+      // window1.close();
+    }
 
-  //   const runTask1 = data.map(async (item) => {
-  //     await task1(item)
-  //     return
-  //   })
+    const runTask1 = data.map(async (item) => {
+      await task1(item)
+      return
+    })
 
-  //   // Task 2: Crawl data from group page
-  //   const task2 = async () => {
-  //     // Load the url of the facebook (Login FB)
-  //     await mainWindow.loadURL('https://www.facebook.com/')
+    // Task 2: Crawl data from group page
+    const task2 = async () => {
+      // Load the url of the facebook (Login FB)
+      await mainWindow.loadURL('https://www.facebook.com/')
 
-  //     // Check login status
-  //     const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
-  //     if (!isLogin) {
-  //       await delay(100000)
-  //       await mainWindow.close()
-  //       return
-  //     };
+      // Check login status
+      const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
+      if (!isLogin) {
+        await delay(100000)
+        await mainWindow.close()
+        return
+      };
 
-  //     // Loop fetch group data by page
-  //     const hasGroupData = true
-  //     let page = 0
-  //     while (hasGroupData) {
-  //       const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-  //       if (!urlGroupData) break
+      // Loop fetch group data by page
+      const hasGroupData = true
+      let page = 0
+      while (hasGroupData) {
+        const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+        if (!urlGroupData) break
 
-  //       for (const url of urlGroupData) {
-  //         console.log('url: ', url)
-  //         if (!url.includes('https://www.facebook.com')) continue;
-  //         await mainWindow.loadURL(url.split('?')[0])
-  //         await delay(3000)
+        for (const url of urlGroupData) {
+          console.log('url: ', url)
+          if (!url.includes('https://www.facebook.com')) continue;
+          await mainWindow.loadURL(url.split('?')[0])
+          await delay(3000)
 
-  //         // Scrape data from browser
-  //         const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
-  //         if (!!data?.length) {
-  //           const map = new Map();
-  //           let ipAddress = ''
-  //           const interfaces = os.networkInterfaces();
-  //           for (const iface of interfaces['WLAN']) {
-  //             if (iface.family === "IPv4" && !iface.internal) {
-  //               ipAddress = iface.address
-  //             }
-  //           }
+          // Scrape data from browser
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
+          if (!!data?.length) {
+            const map = new Map();
+            let ipAddress = ''
+            const interfaces = os.networkInterfaces();
+            for (const iface of interfaces['WLAN']) {
+              if (iface.family === "IPv4" && !iface.internal) {
+                ipAddress = iface.address
+              }
+            }
 
-  //           const dataUnique = data.filter((item) => {
-  //             const key = `${item.idAccount}-${item.contactUs}`;
-  //             if (!map.has(key)) {
-  //               map.set(key, true);
-  //               return true;
-  //             }
-  //             return false;
-  //           });
+            const dataUnique = data.filter((item) => {
+              const key = `${item.idAccount}-${item.contactUs}`;
+              if (!map.has(key)) {
+                map.set(key, true);
+                return true;
+              }
+              return false;
+            });
 
-  //           // Add urlFacebook to dataUnique
-  //           const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}`, ipAddress: ipAddress }));
-  //           console.log('Length dataSave: ', dataSave)
+            // Add urlFacebook to dataUnique
+            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}`, ipAddress: ipAddress }));
+            console.log('Length dataSave: ', dataSave)
 
-  //           // Save user fb to database
-  //           await Promise.all(dataSave.map(async (item) => {
-  //             const user = await saveDataFb(item)
-  //             console.log('user: ', user)
-  //           }));
-  //         }
+            // Save user fb to database
+            await Promise.all(dataSave.map(async (item) => {
+              const user = await saveDataFb(item)
+              console.log('user: ', user)
+            }));
+          }
 
-  //         await delay(1000) // Wait for 10 seconds
-  //       }
-  //       page++
-  //     }
+          await delay(1000) // Wait for 10 seconds
+        }
+        page++
+      }
 
-  //     // Load the index.html in project of the desktop app.
-  //     await mainWindow.loadFile('index.html')
-  //   }
+      // Load the index.html in project of the desktop app.
+      await mainWindow.loadFile('index.html')
+    }
 
-  //   await Promise.all([runTaskMain(), runTask1])
-  // });
+    await Promise.all([runTaskMain(), runTask1])
+  });
 
   // Open the DevTools. (Ctr + Shift + I)
   // mainWindow.webContents.openDevTools()
 
-  // mainWindow.webContents.on('did-finish-load', async () => {
-  //   await delay(3000);
-  //   // mainWindow.webContents.openDevTools();
-  // });
+  mainWindow.webContents.on('did-finish-load', async () => {
+    await delay(3000);
+    // mainWindow.webContents.openDevTools();
+  });
 }
 
 // Create the browser window
@@ -306,8 +298,8 @@ const checkLoginFacebook = `(async () => {
     const mail = document?.querySelector('#email')
     const pw = document?.querySelector('#pass')
     if (mail && pw) {
-      mail.value = 'shanghaifanyuan613@gmail.com'
-      pw.value = 'Fago1618@'
+      mail.value = 'Natalie@sfyf.cn'
+      pw.value = 'Aa123456@'
     } else {
       return true
     }
