@@ -435,7 +435,7 @@ const scrapeDataFromBrowser = `(async () => {
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
 
-      if (i < 20 || data.length < 20) {
+      if (i < 40 || data.length < 40) {
         await delay(2000)
         elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
       } else {
