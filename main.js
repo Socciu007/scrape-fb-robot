@@ -5,10 +5,21 @@ const jsQR = require('jsqr');
 const os = require('os');
 const { saveDataFb, fetchGroupData, transformDataByChatgpt, saveDataToDatabase, serviceGemini } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
+const fs = require('node:fs/promises');
+
+let PORT_LIST = []
+
+// Function to check if the target string contains any port in the port list
+const containsPort = (targetString, portList) => {
+  return portList.some(port => targetString.includes(port));
+}
 
 async function main() {
   // console.log('Robot version: ', process.versions);
   // Create the browser window.
+  const portList = await fs.readFile('port.txt', { encoding: 'utf8' });
+  PORT_LIST = portList.toLowerCase().split('\r\n').filter(Boolean);
+  
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -93,6 +104,7 @@ async function main() {
 
           if (!!dataSave?.length) {
             for (const item of dataSave) {
+              if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
               const response = await saveDataFb(item)
               console.log('response: ', response)
             }
@@ -632,7 +644,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 
           // Check if the text chat is not empty
           if (textChat && textChat.trim() !== '') {
-            data.push({ content: textChat, group: textNameChat, time: timeChat, crawlBy: ${JSON.stringify(accountCrawl)}, userId: 2, type: 'chat', urlContent: urlMessage })
+            data.push({ content: textChat, group: textNameChat, time: timeChat, crawlBy: ${JSON.stringify(accountCrawl)}, userId: 2, type: 'chat', urlContent: urlMessage, idAccount: '1' })
           }
           
           if (j === 0) {
@@ -677,6 +689,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 ipcMain.handle('data-chat', async (event, data) => {
+  console.log('data: ', data);
   if (data?.length > 0) {
     let ipAddress = ''
     const interfaces = os.networkInterfaces();
@@ -700,11 +713,14 @@ ipcMain.handle('data-chat', async (event, data) => {
     // Add ipAddress to dataUnique
     const dataSave = dataUnique.map(item => ({ ...item, ipAddress: ipAddress })).filter(item => !(item.contactUs === '' || item.contactUs === null || item.contactUs === null));
 
-    const res1 = await saveDataToDatabase(JSON.stringify(dataSave))
-    console.log('saveDataChat: ', res1)
 
-    const res2 = await transformDataByChatgpt()
-    console.log('transformDataChatByChatgpt: ', res2)
+    if (dataSave.length > 0) {
+      for (const item of dataSave) {
+        if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
+        const res1 = await saveDataFb(item)
+        console.log('saveDataChat: ', res1)
+      }
+    }
   }
 });
 
