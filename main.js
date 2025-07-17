@@ -3,8 +3,8 @@ const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = requ
 const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
-const { saveDataFb, fetchGroupData, transformDataByChatgpt, saveDataToDatabase, serviceGemini } = require('./services');
-const { timeTaskScrapeFb } = require('./cron');
+const { saveDataFb, fetchGroupData } = require('./services');
+// const { timeTaskScrapeFb } = require('./cron');
 const fs = require('node:fs/promises');
 
 let PORT_LIST = []
@@ -125,7 +125,7 @@ async function main() {
   await mainWindow.loadFile('index.html')
 
   // Run task scrape fb
-  await timeTaskScrapeFb(runTaskMain);
+  // await timeTaskScrapeFb(runTaskMain);
 
   // IPC event listener (Listen data from renderer process)
   ipcMain.handle("data-input", async (event, data) => {
