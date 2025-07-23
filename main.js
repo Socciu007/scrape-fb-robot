@@ -4,22 +4,38 @@ const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
 const { saveDataFb, fetchGroupData } = require('./services');
-// const { timeTaskScrapeFb } = require('./cron');
-const fs = require('node:fs/promises');
-
-let PORT_LIST = []
-
-// Function to check if the target string contains any port in the port list
-const containsPort = (targetString, portList) => {
-  return portList.some(port => targetString.includes(port));
-}
+const { timeTaskScrapeFb } = require('./cron');
+let PORT_LIST = [
+  "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
+  "PHILIPPINE", "SINGAPORE", "THAILAND", "VIETNAM",
+  "SIHANOUKKVILLE", "HONG KONG", "JAKARTA", "SEMARANG",
+  "PORT KELANG", "TANJUNG PELEPAS", "YANGON", "MANILA",
+  "CEBU", "SUBIC", "SINGAPORE", "BANGKOK", "LAEMCHABANG",
+  "HOCHIMINH", "HAIPHONG", "DANANG", "CHITTAGONG",
+  "NHAVA SHEVA", "VISAKHAPATNAM", "CHENNAI", "PIPAVAV",
+  "UMM QASAR", "SOHAR", "KARACHI", "HAMAD", "DAMMAM",
+  "COLOMBO", "JEBEL ALI", "MINA QABOOS", "MUSCAT",
+  "SALALAH", "DUBAI", "DJIBOUTI", "SOKHNA", "AQABA",
+  "JEDDAH", "PORT SAID", "TEMA", "MOMBASA", "APAPA",
+  "TIN CAN", "DURBAN", "CAPE TOWN", "LOME",
+  "TOKYO OSAKA", "MOJI", "NAGOYA", "BUSAN", "INCHON",
+  "KEELUNG", "KAOHSIUNG", "LOS ANGELES", "LONG BEACH",
+  "NEW YORK", "MIAMI", "HOUSTON", "VANCOUVER",
+  "ANIWERP", "FELIXSTOWE", "SOUTHAMPTON", "LE HAVRE",
+  "HAMBURG", "PIRAEUS", "ASHDOD", "GENOVA", "ROTTERDAM",
+  "KOPER", "VALENCIA", "BARCELONA", "ISTANBUL",
+  "BUENOS AIRES", "RIO DE JANEIRO", "BUNAVENTURA",
+  "GUAYAQUIL", "KINGSTON", "MANZANILLO", "CALLAO",
+  "SYDNEY", "FREMANTLE", "BRISBANE", "WELLINGTON",
+  "AUCKLAND", "SKV", "HKG", "JKT", "SMG", "PKG", "TPP",
+  "YGN", "MNL", "CEB", "SUB", "SGP", "BKK", "LCB",
+  "HCM", "HPG", "DAN", "TKY", "OSK", "MOJ", "NAG",
+  "BUS", "INC", "KEE", "KAO"
+]
 
 async function main() {
   // console.log('Robot version: ', process.versions);
   // Create the browser window.
-  const portList = await fs.readFile('port.txt', { encoding: 'utf8' });
-  PORT_LIST = portList.toLowerCase().split('\r\n').filter(Boolean);
-  
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -32,7 +48,8 @@ async function main() {
       session: session.fromPartition('persist:Natalie@sfyf.cn')
     },
   })
-  // Load the url of the facebook (Login FB)
+
+  PORT_LIST = PORT_LIST.map(item => item.toLowerCase());
   
   // Task main: Crawl data from group page with keyword='zalo'
   const runTaskMain = async () => {
@@ -61,7 +78,7 @@ async function main() {
           await mainWindow.loadURL(urlAccess)
           urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
         }
-        console.log('url: ', urlAccess)
+        console.log('url: ', urlAccess.replace(/\/$/, ""))
         if (!urlAccess.includes('https://www.facebook.com')) continue;
         await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search?q=zalo`)
         await delay(5000)
@@ -106,7 +123,6 @@ async function main() {
             for (const item of dataSave) {
               if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
               const response = await saveDataFb(item)
-              console.log('response: ', response)
             }
           }
         }
@@ -301,6 +317,11 @@ async function delay(time) {
   await new Promise(resolve => setTimeout(resolve, time));
 }
 
+// Function to check if the target string contains any port in the port list
+const containsPort = (targetString, portList) => {
+  return portList.some(port => targetString.includes(port));
+}
+
 // Function to check login facebook
 const checkLoginFacebook = `(async () => {
   const delay = async (time) => {
@@ -404,7 +425,7 @@ const scrapeDataFromBrowser = `(async () => {
     for (let i = 0; i < elementArr.length; i++) {
       await delay(1000)
       // Scroll to the element ith
-      console.log('elementArr[i]: ', elementArr.length, i)
+      console.log('elementArr[i]: ', elementArr?.length, i)
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       await delay(1000)
@@ -417,7 +438,8 @@ const scrapeDataFromBrowser = `(async () => {
 
       // Scrape text content of the element
       await delay(1000)
-      let textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
+      let textContent = elementArr[i]?.querySelectorAll('.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.x1l90r2v.xv54qhq.xf7dkkf.x1iorvi4')?.[0]?.textContent
+      if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[2]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
@@ -438,23 +460,21 @@ const scrapeDataFromBrowser = `(async () => {
         await delay(1000)
         textUrlContent = (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
       }
-      console.log('textUrlContent: ', textUrlContent)
+      // console.log('textUrlContent: ', textUrlContent)
 
       const urlImg = elementArr[i]?.querySelector('a > div.x6s0dn4.x1jx94hy.x78zum5.xdt5ytf.x6ikm8r.x10wlt62.x1n2onr6.xh8yej3 > div > div > div > img')?.src ||
         elementArr[i]?.querySelector('a > div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6ikm8r.x10wlt62 > div.xqtp20y.x6ikm8r.x10wlt62.x1n2onr6 > div > img')?.src || null
       if (textContent) {
-        console.log('-----textContent----: ')
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
 
-      if (i < 40 || data.length < 40) {
+      if (i < 27 || data?.length < 25) {
         await delay(2000)
         elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
       } else {
         break
       }
-
-      console.log('data: ', data.length)
+      console.log('Length of data: ', data.length)
     }
 
     // Remove duplicate comment and add field contactUs
