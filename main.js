@@ -30,7 +30,7 @@ let PORT_LIST = [
   "AUCKLAND", "SKV", "HKG", "JKT", "SMG", "PKG", "TPP",
   "YGN", "MNL", "CEB", "SUB", "SGP", "BKK", "LCB",
   "HCM", "HPG", "DAN", "TKY", "OSK", "MOJ", "NAG",
-  "BUS", "INC", "KEE", "KAO"
+  "BUS", "INC", "KEE", "KAO", "Hải Phòng", "Hồ Chí Minh", "Hà Nội"
 ]
 
 async function main() {
@@ -67,11 +67,13 @@ async function main() {
     const hasGroupData = true
     let page = 0
     while (hasGroupData) {
+      let urlGroup = ['https://www.facebook.com/groups/2053336414695149/']
       const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-      console.log('Page: ', page + 1)
+      urlGroup = urlGroup.concat(urlGroupData)
+      // console.log('Page: ', page + 1)
       if (!urlGroupData) break
 
-      for (const url of urlGroupData) {
+      for (const url of urlGroup) {
         let urlAccess = url
         console.log('urlAccess: ', urlAccess)
         // Load the url of the group facebook
@@ -87,7 +89,7 @@ async function main() {
         await delay(5000)
 
         // Scrape data from browser
-        const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage)
+        const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess))
         if (!data?.length) continue;
         let ipAddress = ''
         const interfaces = os.networkInterfaces();
@@ -503,103 +505,103 @@ const scrapeDataFromBrowser = `(async () => {
 })()`
 
 // Function to scrape the data from the browser (group page)
-const scrapeDataFromGroupPage = `(async () => {
-  const delay = async (time) => {
-    await new Promise(resolve => setTimeout(resolve, time));
-  }
-  try {
-    await delay(1000)
-    const documentPage = document?.querySelector('div[role="feed"]')
-    console.log('documentPage: ', documentPage)
-    if (!documentPage) return [] // If the documentPage is not found, return an empty array
-
-    // Get text of group name
-    await delay(1000)
-    const groupName = document?.querySelector('.x1e56ztr.x1xmf6yo > [dir="auto"] > span[dir="auto"] > a[role="link"]')?.textContent
-    // const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
-
-    await delay(1000)
-    let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
-    // console.log('elementArr: ', elementArr.length)
-    if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
-
-    let data = []
-    for (let i = 0; i < elementArr?.length; i++) {
-      await delay(1000)
-      // Scroll to the element ith
-      elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-      await delay(1000)
-      const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]') ||
-        elementArr[i]?.querySelector('div > div > span > div > div:nth-child(3) > div > div')
-      if (btnSeeMore) {
-        btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        btnSeeMore.click()
-        await delay(1000)
-      }
-
-      // Scrape text content of the element
-      await delay(1000)
-      let textContent = elementArr[i]?.querySelectorAll('.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.x1l90r2v.xv54qhq.xf7dkkf.x1iorvi4')?.[0]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[2]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
-      if (!textContent) textContent = elementArr[i]?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div:nth-child(5) > div > div > div > div > div > div > div > div > div > div > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div:nth-child(3) > div > div > div > div')?.textContent
-      const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || elementArr[i]?.querySelector('.html-strong')?.textContent || '0'
-      const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')?.[6] || elementArr[i]?.querySelector('.xjp7ctv > a')?.href?.split('/')?.[6] || ''
-      const urlAvatar = elementArr[i]?.querySelector('g > image')?.href?.baseVal || ''
-      await delay(1000)
-
-      const elementUrlContent = elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
-      let textUrlContent = ''
-      if (elementUrlContent) {
-        await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await delay(1000)
-        await elementUrlContent?.focus()
-        textUrlContent = (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
-      }
-      // console.log('textUrlContent: ', textUrlContent)
-
-      if (textContent) {
-        console.log('Text Content-------: ', textContent)
-        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlAvatar: urlAvatar })
-      }
-
-      if (i < 25 || data.length < 25) {
-        await delay(2000)
-        elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
-      } else {
-        break
-      }
+const scrapeDataFromGroupPage = (urlGroup) => {
+  return `(async () => {
+    const delay = async (time) => {
+      await new Promise(resolve => setTimeout(resolve, time));
     }
+    try {
+      await delay(1000)
+      const documentPage = document?.querySelector('div[role="feed"]')
+      console.log('documentPage: ', documentPage)
+      if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
-    // Remove duplicate comment and add field contactUs
-    data = data.filter((item, index, self) =>
-      index === self.findIndex((c) => c.content === item.content)
-    ).map((c) => {
-      const contactUs = Array.from(new Set(c?.content?.match(/\\+?\\d{1,3}(?:[.\\s]?\\d{1,4})+|\\b0\\d{9}\\b/g)
-        ?.filter((num, index, self) =>
-          self.indexOf(num) === index && num.replace(/\\D/g, '').length >= 9
-        )
-        ?.map(num => num.match(/\\d+/g)?.join('') || '')
-        ?.filter(Boolean) || []))
-        ?.join(', ') || '';
-      return { ...c, contactUs };
-    })
+      // Get text of group name
+      await delay(1000)
+      const groupName = document?.querySelector('.x1e56ztr.x1xmf6yo > [dir="auto"] > span[dir="auto"] > a[role="link"]')?.textContent
+      // const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
 
-    // Remove data if contactUs is empty
-    data = data.filter((c) => c.contactUs)
+      await delay(1000)
+      let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+      // console.log('elementArr: ', elementArr.length)
+      if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
-    console.log('data: ', data.length)
-    return data
-  } catch (error) {
-    console.log('Error scraping data from browser: ', error)
-    return []
-  }
-})()`
+      let data = []
+      for (let i = 0; i < elementArr?.length; i++) {
+        await delay(1000)
+        // Scroll to the element ith
+        elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        await delay(1000)
+        const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]') ||
+          elementArr[i]?.querySelector('div > div > span > div > div:nth-child(3) > div > div')
+        if (btnSeeMore) {
+          btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          btnSeeMore.click()
+          await delay(1000)
+        }
+
+        // Scrape text content of the element
+        await delay(1000)
+        let textContent = elementArr[i]?.querySelectorAll('.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.x1l90r2v.xv54qhq.xf7dkkf.x1iorvi4')?.[0]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[2]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div:nth-child(5) > div > div > div > div > div > div > div > div > div > div > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div:nth-child(3) > div > div > div > div')?.textContent
+        const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || elementArr[i]?.querySelector('.html-strong')?.textContent || '0'
+        const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')?.[6] || elementArr[i]?.querySelector('.xjp7ctv > a')?.href?.split('/')?.[6] || ''
+        const urlAvatar = elementArr[i]?.querySelector('g > image')?.href?.baseVal || ''
+        await delay(1000)
+
+        const elementUrlContent = elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
+        let textUrlContent = ''
+        if (elementUrlContent) {
+          await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await delay(1000)
+          await elementUrlContent?.focus()
+          textUrlContent = (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
+        }
+        // console.log('textUrlContent: ', textUrlContent)
+
+        if (textContent) {
+          const type = ${JSON.stringify(urlGroup)} === 'https://www.facebook.com/groups/2053336414695149/' ? 'special' : 'comment'
+          console.log('type: ', type)
+          data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlAvatar: urlAvatar })
+        }
+
+        if (i < 25 || data.length < 25) {
+          await delay(2000)
+          elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+        } else {
+          break
+        }
+      }
+
+      // Remove duplicate comment and add field contactUs
+      data = data.filter((item, index, self) =>
+        index === self.findIndex((c) => c.content === item.content)
+      ).map((c) => {
+        const contactUs = Array.from(new Set(c?.content?.match(/\\+?\\d{1,3}(?:[.\\s]?\\d{1,4})+|\\b0\\d{9}\\b/g)
+          ?.filter((num, index, self) =>
+            self.indexOf(num) === index && num.replace(/\\D/g, '').length >= 9
+          )
+          ?.map(num => num.match(/\\d+/g)?.join('') || '')
+          ?.filter(Boolean) || []))
+          ?.join(', ') || '';
+        return { ...c, contactUs };
+      })
+
+      console.log('data: ', data.length)
+      return data
+    } catch (error) {
+      console.log('Error scraping data from browser: ', error)
+      return []
+    }
+  })()`
+}
 
 // Function to scrape the data from the browser (message page)
 const scrapeDataFromMessagePage = (accountCrawl) => {
