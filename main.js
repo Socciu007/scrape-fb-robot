@@ -50,98 +50,6 @@ async function main() {
   })
 
   PORT_LIST = PORT_LIST.map(item => item.toLowerCase());
-  
-  // Task main: Crawl data from group page with keyword='zalo'
-  const runTaskMain = async () => {
-    await mainWindow.loadURL('https://www.facebook.com/')
-
-    // Check login status
-    const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
-    if (!isLogin) {
-      await delay(100000)
-      await mainWindow.close()
-      return
-    };
-
-    // Loop fetch group data by page
-    const hasGroupData = true
-    let page = 0
-    while (hasGroupData) {
-      let urlGroup = ['https://www.facebook.com/groups/2053336414695149/']
-      const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-      urlGroup = urlGroup.concat(urlGroupData)
-      // console.log('Page: ', page + 1)
-      if (!urlGroupData) break
-
-      for (const url of urlGroup) {
-        let urlAccess = url
-        console.log('urlAccess: ', urlAccess)
-        // Load the url of the group facebook
-        if (urlAccess.includes('share')) {
-          await mainWindow.loadURL(urlAccess)
-          urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
-        }
-        if (urlAccess.includes('?')) {
-          urlAccess = urlAccess.split('?')[0]
-        }
-        if (!urlAccess.includes('https://www.facebook.com')) continue;
-        await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}`)
-        await delay(5000)
-
-        // Scrape data from browser
-        const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess))
-        if (!data?.length) continue;
-        let ipAddress = ''
-        const interfaces = os.networkInterfaces();
-        for (const iface of interfaces['WLAN']) {
-          if (iface.family === "IPv4" && !iface.internal) {
-            ipAddress = iface.address
-          }
-        }
-        if (!!data?.length) {
-          // Check QR code from url
-          const dataNew = await Promise.all(data.map(async (item) => {
-            if (!item?.urlZalo) return { ...item, ipAddress };
-            const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
-            if (isQRCode?.isQRCode) {
-              return item
-            }
-            return { ...item, urlZalo: '', ipAddress }
-          }))
-
-          // Remove duplicate data with field 'idAccount' and 'contactUs'
-          const map = new Map();
-          const dataUnique = dataNew.filter((item) => {
-            const key = `${item.idAccount}-${item.contactUs}`;
-            if (!map.has(key)) {
-              map.set(key, true);
-              return true;
-            }
-            return false;
-          });
-
-          // Add urlFacebook to dataUnique
-          const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
-          console.log('dataSave: ', dataSave)
-
-          if (!!dataSave?.length) {
-            for (const item of dataSave) {
-              if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
-              const response = await saveDataFb(item)
-              console.log('Save data fb')
-            }
-          }
-        }
-
-        await delay(1000) // Wait for 10 seconds
-      }
-      page++
-    }
-
-    // Load the index.html in project of the desktop app.
-    await mainWindow.loadFile('index.html')
-    await mainWindow.close()
-  }
 
   // Load the index.html in project of the desktop app.
   await mainWindow.loadFile('index.html')
@@ -153,6 +61,97 @@ async function main() {
   ipcMain.handle("data-input", async (event, data) => {
     console.log("Received data from renderer: ", data);
     // await mainWindow.setBounds({ x: -2000, y: -2000, width: 1200, height: 600 });
+    // Task main: Crawl data from group page with keyword='zalo'
+    const runTaskMain = async () => {
+      await mainWindow.loadURL('https://www.facebook.com/')
+
+      // Check login status
+      const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
+      if (!isLogin) {
+        await delay(100000)
+        await mainWindow.close()
+        return
+      };
+
+      // Loop fetch group data by page
+      const hasGroupData = true
+      let page = 0
+      while (hasGroupData) {
+        let urlGroup = ['https://www.facebook.com/groups/2053336414695149/']
+        const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+        urlGroup = urlGroup.concat(urlGroupData)
+        // console.log('Page: ', page + 1)
+        if (!urlGroupData) break
+
+        for (const url of urlGroup) {
+          let urlAccess = url
+          console.log('urlAccess: ', urlAccess)
+          // Load the url of the group facebook
+          if (urlAccess.includes('share')) {
+            await mainWindow.loadURL(urlAccess)
+            urlAccess = mainWindow.webContents.getURL().split('?')[0].split('#')[0]
+          }
+          if (urlAccess.includes('?')) {
+            urlAccess = urlAccess.split('?')[0]
+          }
+          if (!urlAccess.includes('https://www.facebook.com')) continue;
+          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}`)
+          await delay(5000)
+
+          // Scrape data from browser
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess))
+          if (!data?.length) continue;
+          let ipAddress = ''
+          const interfaces = os.networkInterfaces();
+          for (const iface of interfaces['WLAN']) {
+            if (iface.family === "IPv4" && !iface.internal) {
+              ipAddress = iface.address
+            }
+          }
+          if (!!data?.length) {
+            // Check QR code from url
+            const dataNew = await Promise.all(data.map(async (item) => {
+              if (!item?.urlZalo) return { ...item, ipAddress };
+              const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
+              if (isQRCode?.isQRCode) {
+                return item
+              }
+              return { ...item, urlZalo: '', ipAddress }
+            }))
+
+            // Remove duplicate data with field 'idAccount' and 'contactUs'
+            const map = new Map();
+            const dataUnique = dataNew.filter((item) => {
+              const key = `${item.idAccount}-${item.contactUs}`;
+              if (!map.has(key)) {
+                map.set(key, true);
+                return true;
+              }
+              return false;
+            });
+
+            // Add urlFacebook to dataUnique
+            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
+            console.log('dataSave: ', dataSave)
+
+            if (!!dataSave?.length) {
+              for (const item of dataSave) {
+                if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
+                const response = await saveDataFb(item)
+                console.log('Save data fb')
+              }
+            }
+          }
+
+          await delay(1000) // Wait for 10 seconds
+        }
+        page++
+      }
+
+      // Load the index.html in project of the desktop app.
+      await mainWindow.loadFile('index.html')
+      await mainWindow.close()
+    };
 
     const task1 = async (data) => {
       const window1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: data.account })
