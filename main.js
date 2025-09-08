@@ -4,7 +4,6 @@ const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
 const { saveDataFb, fetchGroupData } = require('./services');
-const { v4: uuidv4 } = require('uuid');
 const { timeTaskScrapeFb } = require('./cron');
 let PORT_LIST = [
   "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
@@ -715,8 +714,9 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 ipcMain.handle('data-chat', async (event, data) => {
-  console.log('data chat: ', data);
   if (data?.length > 0) {
+    
+    const { v4: uuidv4 } = await import('uuid');
     let ipAddress = ''
     const interfaces = os.networkInterfaces();
     for (const iface of interfaces['WLAN']) {
@@ -739,11 +739,11 @@ ipcMain.handle('data-chat', async (event, data) => {
     // Add ipAddress to dataUnique
     const dataSave = dataUnique.map(item => ({ ...item, ipAddress: ipAddress, idAccount: uuidv4() })).filter(item => !(item.contactUs === '' || item.contactUs === null || item.contactUs === null));
 
-
     if (dataSave.length > 0) {
       for (const item of dataSave) {
         if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
         const res1 = await saveDataFb(item)
+        console.log('res1: ', res1)
       }
     }
   }
