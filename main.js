@@ -4,6 +4,7 @@ const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
 const { saveDataFb, fetchGroupData } = require('./services');
+const { v4: uuidv4 } = require('uuid');
 const { timeTaskScrapeFb } = require('./cron');
 let PORT_LIST = [
   "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
@@ -571,7 +572,7 @@ const scrapeDataFromGroupPage = (urlGroup) => {
           data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlAvatar: urlAvatar })
         }
 
-        if (i < 25 || data.length < 25) {
+        if (i < 30 || data.length < 30) {
           await delay(2000)
           elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
         } else {
@@ -736,7 +737,7 @@ ipcMain.handle('data-chat', async (event, data) => {
     });
 
     // Add ipAddress to dataUnique
-    const dataSave = dataUnique.map(item => ({ ...item, ipAddress: ipAddress })).filter(item => !(item.contactUs === '' || item.contactUs === null || item.contactUs === null));
+    const dataSave = dataUnique.map(item => ({ ...item, ipAddress: ipAddress, idAccount: uuidv4() })).filter(item => !(item.contactUs === '' || item.contactUs === null || item.contactUs === null));
 
 
     if (dataSave.length > 0) {
