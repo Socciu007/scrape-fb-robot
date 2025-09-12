@@ -116,7 +116,7 @@ async function main() {
               if (isQRCode?.isQRCode) {
                 return item
               }
-              return { ...item, urlZalo: '', ipAddress }
+              return { ...item, urlZalo: '', ipAddress, idAccount: item.idAccount || uuidv4() }
             }))
 
             // Remove duplicate data with field 'idAccount' and 'contactUs'
@@ -138,7 +138,7 @@ async function main() {
               for (const item of dataSave) {
                 if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
                 const response = await saveDataFb(item)
-                console.log('Save data fb')
+                console.log('Save data fb: ', response)
               }
             }
           }
