@@ -473,7 +473,7 @@ const scrapeDataFromBrowser = `(async () => {
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
 
-      if (i < 27 || data?.length < 25) {
+      if (i < 50 || data?.length < 50) {
         await delay(2000)
         elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
       } else {
@@ -512,7 +512,6 @@ const scrapeDataFromGroupPage = (urlGroup) => {
     try {
       await delay(1000)
       const documentPage = document?.querySelector('div[role="feed"]')
-      console.log('documentPage: ', documentPage)
       if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
       // Get text of group name
@@ -567,13 +566,13 @@ const scrapeDataFromGroupPage = (urlGroup) => {
 
         if (textContent) {
           const type = ${JSON.stringify(urlGroup)} === 'https://www.facebook.com/groups/2053336414695149/' ? 'special' : 'comment'
-          console.log('type: ', type)
           data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlAvatar: urlAvatar })
         }
 
-        if (i < 30 || data.length < 30) {
+        if (data.length < 50 || elementArr.length < 100) {
           await delay(2000)
           elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+          console.log('Length of page array: ', elementArr.length)
         } else {
           break
         }
