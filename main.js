@@ -5,8 +5,9 @@ const jsQR = require('jsqr');
 const os = require('os');
 const { saveDataFb, fetchGroupData } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
+const groupFb = require('./mock/groupFb');
 let PORT_LIST = [
-  "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
+  "ITALY", "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
   "PHILIPPINE", "SINGAPORE", "THAILAND", "VIETNAM",
   "SIHANOUKKVILLE", "HONG KONG", "JAKARTA", "SEMARANG",
   "PORT KELANG", "TANJUNG PELEPAS", "YANGON", "MANILA",
@@ -30,7 +31,8 @@ let PORT_LIST = [
   "AUCKLAND", "SKV", "HKG", "JKT", "SMG", "PKG", "TPP",
   "YGN", "MNL", "CEB", "SUB", "SGP", "BKK", "LCB",
   "HCM", "HPG", "DAN", "TKY", "OSK", "MOJ", "NAG",
-  "BUS", "INC", "KEE", "KAO", "Hải Phòng", "Hồ Chí Minh", "Hà Nội"
+  "BUS", "INC", "KEE", "KAO", "Hải Phòng", "Hồ Chí Minh", "Hà Nội", "INC", "HPH", "CANADA", "MEL",
+  "LAX", "LBG", "MUNDRA", "INDIA", "DELHI"
 ]
 
 async function main() {
@@ -77,7 +79,12 @@ async function main() {
       const hasGroupData = true
       let page = 0
       while (hasGroupData) {
-        let urlGroup = ['https://www.facebook.com/groups/2053336414695149/']
+        let urlGroup = groupFb?.map((g) => g?.url)
+        for (let i = urlGroup.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [urlGroup[i], urlGroup[j]] = [urlGroup[j], urlGroup[i]];
+        }
+        console.log('urlGroup: ', urlGroup)
         const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
         urlGroup = urlGroup.concat(urlGroupData)
         // console.log('Page: ', page + 1)
@@ -99,7 +106,8 @@ async function main() {
           await delay(5000)
 
           // Scrape data from browser
-          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess))
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess, groupFb?.map((g) => g?.url)))
+          console.log('data: ', data?.length)
           if (!data?.length) continue;
           let ipAddress = ''
           const interfaces = os.networkInterfaces();
@@ -131,8 +139,9 @@ async function main() {
             });
 
             // Add urlFacebook to dataUnique
+            console.log('dataUnique: ', dataUnique?.length)
             const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
-            console.log('dataSave: ', dataSave)
+            console.log('dataSave: ', dataSave?.length)
 
             if (!!dataSave?.length) {
               for (const item of dataSave) {
@@ -504,7 +513,7 @@ const scrapeDataFromBrowser = `(async () => {
 })()`
 
 // Function to scrape the data from the browser (group page)
-const scrapeDataFromGroupPage = (urlGroup) => {
+const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
   return `(async () => {
     const delay = async (time) => {
       await new Promise(resolve => setTimeout(resolve, time));
@@ -565,11 +574,11 @@ const scrapeDataFromGroupPage = (urlGroup) => {
         // console.log('textUrlContent: ', textUrlContent)
 
         if (textContent) {
-          const type = ${JSON.stringify(urlGroup)} === 'https://www.facebook.com/groups/2053336414695149/' ? 'special' : 'comment'
+          const type = ${JSON.stringify(urlOriginal)?.includes(urlAccess)} ? 'special' : 'comment'
           data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlAvatar: urlAvatar })
         }
 
-        if (data.length < 50 || elementArr.length < 100) {
+        if (data.length < 100 || elementArr.length < 120) {
           await delay(2000)
           elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
           console.log('Length of page array: ', elementArr.length)
