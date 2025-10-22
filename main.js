@@ -84,7 +84,6 @@ async function main() {
           const j = Math.floor(Math.random() * (i + 1));
           [urlGroup[i], urlGroup[j]] = [urlGroup[j], urlGroup[i]];
         }
-        console.log('urlGroup: ', urlGroup)
         const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
         urlGroup = urlGroup.concat(urlGroupData)
         // console.log('Page: ', page + 1)
@@ -107,7 +106,7 @@ async function main() {
 
           // Scrape data from browser
           const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess, groupFb?.map((g) => g?.url)))
-          console.log('data: ', data?.length)
+          console.log('dataStart: ', data?.length)
           if (!data?.length) continue;
           let ipAddress = ''
           const interfaces = os.networkInterfaces();
@@ -139,9 +138,8 @@ async function main() {
             });
 
             // Add urlFacebook to dataUnique
-            console.log('dataUnique: ', dataUnique?.length)
             const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
-            console.log('dataSave: ', dataSave?.length)
+            console.log('dataAfterFilter: ', dataSave?.length)
 
             if (!!dataSave?.length) {
               for (const item of dataSave) {
@@ -578,7 +576,7 @@ const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
           data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlAvatar: urlAvatar })
         }
 
-        if (data.length < 100 || elementArr.length < 120) {
+        if (elementArr.length < 120) {
           await delay(2000)
           elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
           console.log('Length of page array: ', elementArr.length)

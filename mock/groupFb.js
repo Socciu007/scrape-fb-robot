@@ -58,6 +58,30 @@ const groupFb = [
   {
     id: 15,
     url: 'https://www.facebook.com/groups/freightforwardersgroup/',
+  },
+  {
+    id: 16,
+    url: 'https://www.facebook.com/groups/7481959658529095/'
+  },
+  {
+    id: 17,
+    url: 'https://www.facebook.com/groups/328615733353759/'
+  },
+  {
+    id: 18,
+    url: 'https://www.facebook.com/groups/vanchuyentrungquocvevietnam/'
+  },
+  {
+    id: 19,
+    url: 'https://www.facebook.com/groups/cdnguoivntaichauau/'
+  },
+  {
+    id: 20,
+    url: 'https://www.facebook.com/groups/1391948567650376/'
+  },
+  {
+    id: 21,
+    url: 'https://www.facebook.com/groups/ship.viet.my/'
   }
 ]
 
