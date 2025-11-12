@@ -6,6 +6,7 @@ const os = require('os');
 const { saveDataFb, fetchGroupData } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
 const groupFb = require('./mock/groupFb');
+const { v4: uuidv4 } = require('uuid');
 let PORT_LIST = [
   "ITALY", "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
   "PHILIPPINE", "SINGAPORE", "THAILAND", "VIETNAM",
@@ -80,10 +81,10 @@ async function main() {
       let page = 0
       while (hasGroupData) {
         let urlGroup = groupFb?.map((g) => g?.url)
-        for (let i = urlGroup.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [urlGroup[i], urlGroup[j]] = [urlGroup[j], urlGroup[i]];
-        }
+        // for (let i = urlGroup.length - 1; i > 0; i--) {
+        //   const j = Math.floor(Math.random() * (i + 1));
+        //   [urlGroup[i], urlGroup[j]] = [urlGroup[j], urlGroup[i]];
+        // }
         const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
         urlGroup = urlGroup.concat(urlGroupData)
         // console.log('Page: ', page + 1)
@@ -91,7 +92,6 @@ async function main() {
 
         for (const url of urlGroup) {
           let urlAccess = url
-          console.log('urlAccess: ', urlAccess)
           // Load the url of the group facebook
           if (urlAccess.includes('share')) {
             await mainWindow.loadURL(urlAccess)
@@ -100,12 +100,15 @@ async function main() {
           if (urlAccess.includes('?')) {
             urlAccess = urlAccess.split('?')[0]
           }
+          console.log('urlAccess: ', urlAccess)
           if (!urlAccess.includes('https://www.facebook.com')) continue;
-          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}`)
+          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search/?q=zalo`)
           await delay(5000)
 
           // Scrape data from browser
-          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess, groupFb?.map((g) => g?.url)))
+          //scrapeDataFromBrowser
+          //scrapeDataFromGroupPage
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser(urlAccess, groupFb?.map((g) => g?.url)))
           console.log('dataStart: ', data?.length)
           if (!data?.length) continue;
           let ipAddress = ''
@@ -413,7 +416,8 @@ async function checkQRCodeFromUrl(imageUrl) {
 }
 
 // Function to scrape the data from the browser (group page wiyh keyword='zalo')
-const scrapeDataFromBrowser = `(async () => {
+const scrapeDataFromBrowser = (urlAccess, urlOriginal) => {
+  return `(async () => {
   const delay = async (time) => {
     await new Promise(resolve => setTimeout(resolve, time));
   }
@@ -430,14 +434,13 @@ const scrapeDataFromBrowser = `(async () => {
     console.log('Group Name-----: ', groupName)
 
     await delay(1000)
-    let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+    let elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
     if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
     let data = []
     for (let i = 0; i < elementArr.length; i++) {
       await delay(1000)
       // Scroll to the element ith
-      console.log('elementArr[i]: ', elementArr?.length, i)
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       await delay(1000)
@@ -458,7 +461,7 @@ const scrapeDataFromBrowser = `(async () => {
       if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
       if (!textContent) textContent = elementArr[i]?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div:nth-child(5) > div > div > div > div > div > div > div > div > div > div > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div:nth-child(3) > div > div > div > div')?.textContent
-      console.log('Text Content-------: ', textContent)
+      // console.log('Text Content-------: ', textContent)
       const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || ''
       const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')?.[6] || ''
       const urlAvatar = elementArr[i]?.querySelector('g > image')?.href?.baseVal || ''
@@ -477,12 +480,14 @@ const scrapeDataFromBrowser = `(async () => {
       const urlImg = elementArr[i]?.querySelector('a > div.x6s0dn4.x1jx94hy.x78zum5.xdt5ytf.x6ikm8r.x10wlt62.x1n2onr6.xh8yej3 > div > div > div > img')?.src ||
         elementArr[i]?.querySelector('a > div.html-div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x6ikm8r.x10wlt62 > div.xqtp20y.x6ikm8r.x10wlt62.x1n2onr6 > div > img')?.src || null
       if (textContent) {
-        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: 'comment', urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
+        const type = ${JSON.stringify(urlOriginal)?.includes(urlAccess)} ? 'special' : 'comment'
+        data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
+      console.log('data: ', data)
 
-      if (i < 50 || data?.length < 50) {
+      if (elementArr.length < 120) {
         await delay(2000)
-        elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+        elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
       } else {
         break
       }
@@ -509,6 +514,7 @@ const scrapeDataFromBrowser = `(async () => {
     return []
   }
 })()`
+}
 
 // Function to scrape the data from the browser (group page)
 const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
@@ -526,9 +532,9 @@ const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
       const groupName = document?.querySelector('.x1e56ztr.x1xmf6yo > [dir="auto"] > span[dir="auto"] > a[role="link"]')?.textContent
       // const groupName = elementGroupName?.split(' ')?.slice(1)?.join(' ')
 
-      await delay(1000)
-      let elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
-      // console.log('elementArr: ', elementArr.length)
+      await delay(2000)
+      let elementArr = documentPage?.querySelectorAll('.x1n2onr6.xh8yej3.x1ja2u2z.xod5an3')
+      console.log('elementArr: ', elementArr.length)
       if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
       let data = []
@@ -541,7 +547,8 @@ const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
         const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]') ||
           elementArr[i]?.querySelector('div > div > span > div > div:nth-child(3) > div > div')
         if (btnSeeMore) {
-          btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          btnSeeMore.focus()
           btnSeeMore.click()
           await delay(1000)
         }
@@ -575,10 +582,11 @@ const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
           const type = ${JSON.stringify(urlOriginal)?.includes(urlAccess)} ? 'special' : 'comment'
           data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlAvatar: urlAvatar })
         }
+        console.log('data: ', i, data)
 
-        if (elementArr.length < 120) {
+        if (elementArr.length < 150) {
           await delay(2000)
-          elementArr = documentPage?.querySelectorAll('.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z')
+          elementArr = documentPage?.querySelectorAll('.x1n2onr6.xh8yej3.x1ja2u2z.xod5an3')
           console.log('Length of page array: ', elementArr.length)
         } else {
           break
