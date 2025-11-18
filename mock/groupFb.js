@@ -86,6 +86,30 @@ const groupFb = [
   {
     id: 21,
     url: 'https://www.facebook.com/groups/ship.viet.my/'
+  },
+  {
+    id: 22,
+    url: 'https://www.facebook.com/groups/1508590496672400/'
+  },
+  {
+    id: 23,
+    url: 'https://www.facebook.com/groups/975268343501372/'
+  },
+  {
+    id: 24,
+    url: 'https://www.facebook.com/groups/1141642267072097/'
+  },
+  {
+    id: 25,
+    url: 'https://www.facebook.com/groups/119962035256830/'
+  },
+  {
+    id: 26,
+    url: 'https://www.facebook.com/groups/2974173909518998/'
+  },
+  {
+    id: 27,
+    url: 'https://www.facebook.com/groups/244659422817023/'
   }
 ]
 

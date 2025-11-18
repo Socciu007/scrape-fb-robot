@@ -6,7 +6,6 @@ const os = require('os');
 const { saveDataFb, fetchGroupData } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
 const groupFb = require('./mock/groupFb');
-const { v4: uuidv4 } = require('uuid');
 let PORT_LIST = [
   "ITALY", "CAMBODIA", "CHINA", "INDONESIA", "MALAYSIA", "MYANMAR",
   "PHILIPPINE", "SINGAPORE", "THAILAND", "VIETNAM",
@@ -63,6 +62,7 @@ async function main() {
   // IPC event listener (Listen data from renderer process)
   ipcMain.handle("data-input", async (event, data) => {
     console.log("Received data from renderer: ", data);
+    const { v4: uuidv4 } = await import('uuid');
     // await mainWindow.setBounds({ x: -2000, y: -2000, width: 1200, height: 600 });
     // Task main: Crawl data from group page with keyword='zalo'
     const runTaskMain = async () => {
@@ -102,13 +102,13 @@ async function main() {
           }
           console.log('urlAccess: ', urlAccess)
           if (!urlAccess.includes('https://www.facebook.com')) continue;
-          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}/search/?q=zalo`)
+          await mainWindow.loadURL(`${urlAccess.replace(/\/$/, "")}`) ///search/?q=zalo
           await delay(5000)
 
           // Scrape data from browser
-          //scrapeDataFromBrowser
+          //scrapeDataFromZalo
           //scrapeDataFromGroupPage
-          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromBrowser(urlAccess, groupFb?.map((g) => g?.url)))
+          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage(urlAccess, groupFb?.map((g) => g?.url)))
           console.log('dataStart: ', data?.length)
           if (!data?.length) continue;
           let ipAddress = ''
@@ -180,79 +180,78 @@ async function main() {
       // window1.close();
     }
 
-    const runTask1 = data.map(async (item) => {
-      await task1(item)
-      return
-    })
+    // const runTask1 = data.map(async (item) => {
+    //   await task1(item)
+    //   return
+    // })
 
     // Task 2: Crawl data from group page
-    const task2 = async () => {
+    const task2 = async (account) => {
+      const window2 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: account })
+      if (!window2) return;
       // Load the url of the facebook (Login FB)
-      await mainWindow.loadURL('https://www.facebook.com/')
+      await window2.loadURL('https://www.facebook.com/')
 
       // Check login status
-      const isLogin = await mainWindow.webContents.executeJavaScript(checkLoginFacebook)
+      const isLogin = await window2.webContents.executeJavaScript(checkLoginFacebook)
       if (!isLogin) {
         await delay(100000)
-        await mainWindow.close()
+        await window2.close()
         return
       };
 
-      // Loop fetch group data by page
-      const hasGroupData = true
-      let page = 0
-      while (hasGroupData) {
-        const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
-        if (!urlGroupData) break
+      // Load the url of the group facebook
+      await window2.loadURL('https://www.facebook.com/groups/logisticsvietnam/search/?q=zalo')
+      await delay(3000)
 
-        for (const url of urlGroupData) {
-          console.log('url: ', url)
-          if (!url.includes('https://www.facebook.com')) continue;
-          await mainWindow.loadURL(url.split('?')[0])
-          await delay(3000)
-
-          // Scrape data from browser
-          const data = await mainWindow.webContents.executeJavaScript(scrapeDataFromGroupPage())
-          if (!!data?.length) {
-            const map = new Map();
-            let ipAddress = ''
-            const interfaces = os.networkInterfaces();
-            for (const iface of interfaces['WLAN']) {
-              if (iface.family === "IPv4" && !iface.internal) {
-                ipAddress = iface.address
-              }
-            }
-
-            const dataUnique = data.filter((item) => {
-              const key = `${item.idAccount}-${item.contactUs}`;
-              if (!map.has(key)) {
-                map.set(key, true);
-                return true;
-              }
-              return false;
-            });
-
-            // Add urlFacebook to dataUnique
-            const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}`, ipAddress: ipAddress }));
-            console.log('Length dataSave: ', dataSave)
-
-            // Save user fb to database
-            await Promise.all(dataSave.map(async (item) => {
-              const user = await saveDataFb(item)
-              console.log('user: ', user)
-            }));
-          }
-
-          await delay(1000) // Wait for 10 seconds
+      // Scrape data from browser
+      const data = await window2.webContents.executeJavaScript(scrapeDataFromZalo('https://www.facebook.com/groups/logisticsvietnam', 'https://www.facebook.com/groups/logisticsvietnam'))
+      console.log('dataStart: ', data?.length)
+      let ipAddress = ''
+      const interfaces = os.networkInterfaces();
+      for (const iface of interfaces['WLAN']) {
+        if (iface.family === "IPv4" && !iface.internal) {
+          ipAddress = iface.address
         }
-        page++
       }
+      if (!!data?.length) {
+        // Check QR code from url
+        const dataNew = await Promise.all(data.map(async (item) => {
+          if (!item?.urlZalo) return { ...item, ipAddress };
+          const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
+          if (isQRCode?.isQRCode) {
+            return item
+          }
+          return { ...item, urlZalo: '', ipAddress, idAccount: item.idAccount || uuidv4() }
+        }))
 
-      // Load the index.html in project of the desktop app.
-      await mainWindow.loadFile('index.html')
+        // Remove duplicate data with field 'idAccount' and 'contactUs'
+        const map = new Map();
+        const dataUnique = dataNew.filter((item) => {
+          const key = `${item.idAccount}-${item.contactUs}`;
+          if (!map.has(key)) {
+            map.set(key, true);
+            return true;
+          }
+          return false;
+        });
+
+        // Add urlFacebook to dataUnique
+        const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
+
+        if (!!dataSave?.length) {
+          for (const item of dataSave) {
+            if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
+            const response = await saveDataFb(item)
+            console.log('Save data fb: ', response)
+          }
+        }
+      }
+      // Close the window
+      await window2.close()
     }
 
-    await Promise.all([runTaskMain(), runTask1])
+    await Promise.all([runTaskMain(), task2(data[0].account)]) //runTask1
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -415,15 +414,15 @@ async function checkQRCodeFromUrl(imageUrl) {
   }
 }
 
-// Function to scrape the data from the browser (group page wiyh keyword='zalo')
-const scrapeDataFromBrowser = (urlAccess, urlOriginal) => {
+// Function to scrape the data from the browser (group page with keyword='zalo')
+const scrapeDataFromZalo = (urlAccess, urlOriginal) => {
   return `(async () => {
   const delay = async (time) => {
     await new Promise(resolve => setTimeout(resolve, time));
   }
   try {
     await delay(1000)
-    const documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
+    let documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
     // console.log('documentPage: ', documentPage)
     if (!documentPage) return [] // If the documentPage is not found, return an empty array
 
@@ -438,12 +437,14 @@ const scrapeDataFromBrowser = (urlAccess, urlOriginal) => {
     if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
 
     let data = []
+    let count = 0
     for (let i = 0; i < elementArr.length; i++) {
-      await delay(1000)
+      console.log('index: ', i, elementArr.length)
+      await delay(1500)
       // Scroll to the element ith
       elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      await delay(1000)
+      await delay(800)
       const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]')
       if (btnSeeMore) {
         btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -483,15 +484,44 @@ const scrapeDataFromBrowser = (urlAccess, urlOriginal) => {
         const type = ${JSON.stringify(urlOriginal)?.includes(urlAccess)} ? 'special' : 'comment'
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
       }
-      console.log('data: ', data)
 
-      if (elementArr.length < 120) {
-        await delay(2000)
-        elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+      // Close the window
+      const endElement = document?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div > div > div > div > div > span')
+
+      if (endElement) {
+        count++
+        const dateFilterEle = document?.querySelector('div.x1iyjqo2.xu06os2.x1ok221b.xeuugli > span > span')
+        if (dateFilterEle) {
+          dateFilterEle.focus()
+          dateFilterEle.click()
+          await delay(1000)
+          const selectDateEle = document?.querySelectorAll('.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6 > div.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div')
+          if (selectDateEle) {
+            selectDateEle[count + 1]?.focus()
+            selectDateEle[count + 1]?.click()
+            await delay(5000)
+            documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
+            elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+            i = 0
+            console.log('elementArr: ', i, elementArr.length)
+            continue;
+          }
+        }
       } else {
+        console.log('count: ', count)
+        elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+      }
+
+      if (count === 3) {
         break
       }
-      console.log('Length of data: ', data.length)
+
+      // if (endElement || elementArr.length < 120) {
+      //   await delay(2000)
+      //   elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+      // } else {
+      //   break
+      // }
     }
 
     // Remove duplicate comment and add field contactUs
