@@ -47,6 +47,18 @@ const fetchGroupData = async (page) => {
 }
 
 // Call api to save data to database (ebvn2)
+const saveDataWhatsapp = async (data) => {
+  try {
+    const response = await axios.post('https://www.dadaex.cn/api/vn/crm/addWhatsappDs', data);
+    return response?.data;
+  }
+  catch (error) {
+    console.log('Error saving data to database: ', error);
+    return false;
+  }
+} 
+
+// Call api to save data to database (ebvn2)
 const saveDataToDatabase = async (data) => {
   try {
     // http://localhost:3000/moneyapi/saveDataFacebook
@@ -100,6 +112,10 @@ const serviceGemini = async (dataCrawl, typeUse) => {
       prompt = {
         content: `Extract departure port, destination port, cargo details, company name, and price(if available) from ${JSON.stringify(dataCrawl)}. Return the data in the format ${transformType} without any additional words.`
       };
+    } else if (typeUse === 'whatsapp') {
+      prompt = {
+        content: `Trích xuất ra đường link whatsapp từ nội dung: ${JSON.stringify(dataCrawl)}. Trả về định dạng mảng các đường link whatsapp.`
+      };
     }
 
     const result = await axios.post('http://ai.dadaex.cn/backapi/chatGpt/chatAll', {
@@ -126,5 +142,6 @@ module.exports = {
   transformDataByChatgpt,
   fetchGroupData,
   saveDataToDatabase,
-  serviceGemini
+  serviceGemini,
+  saveDataWhatsapp
 }

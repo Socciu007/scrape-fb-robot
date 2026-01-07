@@ -3,7 +3,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = requ
 const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
-const { saveDataFb, fetchGroupData } = require('./services');
+const { saveDataFb, fetchGroupData, saveDataWhatsapp, serviceGemini } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
 const groupFb = require('./mock/groupFb');
 let PORT_LIST = [
@@ -200,53 +200,107 @@ async function main() {
         return
       };
 
-      // Load the url of the group facebook
-      await window2.loadURL('https://www.facebook.com/groups/logisticsvietnam/search/?q=zalo')
-      await delay(3000)
+      // Loop fetch group data by page
+      const hasGroupData = true
+      let page = 0
+      while (hasGroupData) {
+        let urlGroup = groupFb?.map((g) => g?.url)
+        const urlGroupData = await fetchGroupData(page) // Call the function to fetch group data
+        urlGroup = urlGroup.concat(urlGroupData)
+        if (!urlGroupData) break
 
-      // Scrape data from browser
-      const data = await window2.webContents.executeJavaScript(scrapeDataFromZalo('https://www.facebook.com/groups/logisticsvietnam', 'https://www.facebook.com/groups/logisticsvietnam'))
-      console.log('dataStart: ', data?.length)
-      let ipAddress = ''
-      const interfaces = os.networkInterfaces();
-      for (const iface of interfaces['WLAN']) {
-        if (iface.family === "IPv4" && !iface.internal) {
-          ipAddress = iface.address
+        for (const url of urlGroup) {
+          let urlAccess = url
+          // Load the url of the group facebook
+          if (urlAccess.includes('share')) {
+            await window2.loadURL(urlAccess)
+            urlAccess = window2.webContents.getURL().split('?')[0].split('#')[0]
+          }
+          if (urlAccess.includes('?')) {
+            urlAccess = urlAccess.split('?')[0]
+          }
+          console.log('urlAccess: ', urlAccess)
+          if (!urlAccess.includes('https://www.facebook.com')) continue;
+          await window2.loadURL(`${urlAccess.replace(/\/$/, "")}/search/?q=link%20whatsapp%20group`) ///search/?q=zalo
+          await delay(5000)
+
+          // Scrape data from browser
+          const data = await window2.webContents.executeJavaScript(scrapeDataWhatsapp())
+          console.log('dataStart: ', data?.length)
+          if (!data?.length) continue;
+          let ipAddress = ''
+          const interfaces = os.networkInterfaces();
+          for (const iface of interfaces['WLAN']) {
+            if (iface.family === "IPv4" && !iface.internal) {
+              ipAddress = iface.address
+            }
+          }
+          if (!!data?.length) {
+            for (const item of data) {
+              const responseGemini = await serviceGemini(item, 'whatsapp')
+              console.log('responseGemini: ', responseGemini)
+              if (!!responseGemini?.length) {
+                for (const itemGemini of responseGemini) {
+                  const responseSave = await saveDataWhatsapp({ ...item, linkWhatsapp: itemGemini })
+                  console.log('Save data fb: ', responseSave)
+                }
+              };
+              // const responseSave = await saveDataWhatsapp(response)
+              // console.log('Save data fb: ', responseSave)
+            }
+          }
+
+          await delay(1000) // Wait for 10 seconds
         }
+        page++
       }
-      if (!!data?.length) {
-        // Check QR code from url
-        const dataNew = await Promise.all(data.map(async (item) => {
-          if (!item?.urlZalo) return { ...item, ipAddress };
-          const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
-          if (isQRCode?.isQRCode) {
-            return item
-          }
-          return { ...item, urlZalo: '', ipAddress, idAccount: item.idAccount || uuidv4() }
-        }))
+      // // Load the url of the group facebook
+      // await window2.loadURL('https://www.facebook.com/groups/751699098197946/search?q=zalo/SĐT')
+      // await delay(3000)
 
-        // Remove duplicate data with field 'idAccount' and 'contactUs'
-        const map = new Map();
-        const dataUnique = dataNew.filter((item) => {
-          const key = `${item.idAccount}-${item.contactUs}`;
-          if (!map.has(key)) {
-            map.set(key, true);
-            return true;
-          }
-          return false;
-        });
+      // // Scrape data from browser
+      // const data = await window2.webContents.executeJavaScript(scrapeDataFromZalo('https://www.facebook.com/groups/logisticsvietnam', 'https://www.facebook.com/groups/logisticsvietnam'))
+      // console.log('dataStart: ', data?.length)
+      // let ipAddress = ''
+      // const interfaces = os.networkInterfaces();
+      // for (const iface of interfaces['WLAN']) {
+      //   if (iface.family === "IPv4" && !iface.internal) {
+      //     ipAddress = iface.address
+      //   }
+      // }
+      // if (!!data?.length) {
+      //   // Check QR code from url
+      //   const dataNew = await Promise.all(data.map(async (item) => {
+      //     if (!item?.urlZalo) return { ...item, ipAddress };
+      //     const isQRCode = await checkQRCodeFromUrl(item?.urlZalo)
+      //     if (isQRCode?.isQRCode) {
+      //       return item
+      //     }
+      //     return { ...item, urlZalo: '', ipAddress, idAccount: item.idAccount || uuidv4() }
+      //   }))
 
-        // Add urlFacebook to dataUnique
-        const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
+      //   // Remove duplicate data with field 'idAccount' and 'contactUs'
+      //   const map = new Map();
+      //   const dataUnique = dataNew.filter((item) => {
+      //     const key = `${item.idAccount}-${item.contactUs}`;
+      //     if (!map.has(key)) {
+      //       map.set(key, true);
+      //       return true;
+      //     }
+      //     return false;
+      //   });
 
-        if (!!dataSave?.length) {
-          for (const item of dataSave) {
-            if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
-            const response = await saveDataFb(item)
-            console.log('Save data fb: ', response)
-          }
-        }
-      }
+      //   // Add urlFacebook to dataUnique
+      //   const dataSave = dataUnique.map(item => ({ ...item, urlFacebook: `https://www.facebook.com/${item.idAccount}` })).filter(item => !(item.contactUs === '' || item.contactUs === null));
+
+      //   if (!!dataSave?.length) {
+      //     for (const item of dataSave) {
+      //       if (!containsPort(item.content.toLowerCase(), PORT_LIST)) continue;
+      //       const response = await saveDataFb(item)
+      //       console.log('Save data fb: ', response)
+      //     }
+      //   }
+      // }
       // Close the window
       await window2.close()
     }
@@ -439,6 +493,31 @@ const scrapeDataFromZalo = (urlAccess, urlOriginal) => {
     let data = []
     let count = 0
     for (let i = 0; i < elementArr.length; i++) {
+      // Check if the end element is found
+      const endElement = document?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div > div > div > div > div > span')
+      if (endElement) {
+        count++
+        const dateFilterEle = document?.querySelector('div.x1iyjqo2.xu06os2.x1ok221b.xeuugli > span > span')
+        if (dateFilterEle) {
+          dateFilterEle.focus()
+          dateFilterEle.click()
+          await delay(1000)
+          const selectDateEle = document?.querySelectorAll('.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6 > div.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div')
+          if (selectDateEle) {
+            selectDateEle[count + 1]?.focus()
+            selectDateEle[count + 1]?.click()
+            await delay(3000)
+            documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
+            elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+            i = 0
+            console.log('elementArr: ', i, elementArr.length)
+            continue;
+          }
+        }
+      } else {
+        console.log('count: ', count)
+        elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+      }
       console.log('index: ', i, elementArr.length)
       await delay(1500)
       // Scroll to the element ith
@@ -483,33 +562,6 @@ const scrapeDataFromZalo = (urlAccess, urlOriginal) => {
       if (textContent) {
         const type = ${JSON.stringify(urlOriginal)?.includes(urlAccess)} ? 'special' : 'comment'
         data.push({ content: textContent, group: groupName, account: textAccount, idAccount: textIdAccount, crawlBy: 'shanghaifanyuan613@gmail.com', userId: 2, type: type, urlContent: textUrlContent, urlZalo: urlImg, urlAvatar: urlAvatar })
-      }
-
-      // Close the window
-      const endElement = document?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div > div > div > div > div > span')
-
-      if (endElement) {
-        count++
-        const dateFilterEle = document?.querySelector('div.x1iyjqo2.xu06os2.x1ok221b.xeuugli > span > span')
-        if (dateFilterEle) {
-          dateFilterEle.focus()
-          dateFilterEle.click()
-          await delay(1000)
-          const selectDateEle = document?.querySelectorAll('.x78zum5.xdt5ytf.x1iyjqo2.x1n2onr6 > div.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div')
-          if (selectDateEle) {
-            selectDateEle[count + 1]?.focus()
-            selectDateEle[count + 1]?.click()
-            await delay(5000)
-            documentPage = document?.querySelector('.x193iq5w.x1xwk8fm')
-            elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
-            i = 0
-            console.log('elementArr: ', i, elementArr.length)
-            continue;
-          }
-        }
-      } else {
-        console.log('count: ', count)
-        elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
       }
 
       if (count === 3) {
@@ -638,6 +690,85 @@ const scrapeDataFromGroupPage = (urlAccess, urlOriginal) => {
       })
 
       console.log('data: ', data.length)
+      return data
+    } catch (error) {
+      console.log('Error scraping data from browser: ', error)
+      return []
+    }
+  })()`
+}
+
+// Function to scrape the data from the browser (whatsapp group page)
+const scrapeDataWhatsapp = () => {
+  return `(async () => {
+    const delay = async (time) => {
+      await new Promise(resolve => setTimeout(resolve, time));
+    }
+    try {
+      await delay(1000)
+      const documentPage = document?.querySelector('div[role="feed"]')
+      if (!documentPage) return [] // If the documentPage is not found, return an empty array
+
+      await delay(2000)
+      let elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+      console.log('elementArr: ', elementArr.length)
+      if (!elementArr || !elementArr.length) return [] // If the elementArr is not found or empty, return an empty array
+
+      let data = []
+      for (let i = 0; i < elementArr?.length; i++) {
+        await delay(1000)
+        // Scroll to the element ith
+        elementArr[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        await delay(1000)
+        const btnSeeMore = elementArr[i]?.querySelector('span > div > div > div > div[role="button"]') ||
+          elementArr[i]?.querySelector('div > div > span > div > div:nth-child(3) > div > div')
+        if (btnSeeMore) {
+          // btnSeeMore.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          btnSeeMore.focus()
+          btnSeeMore.click()
+          await delay(1000)
+        }
+
+        // Scrape text content of the element
+        await delay(1000)
+        let textContent = elementArr[i]?.querySelectorAll('.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.x1l90r2v.xv54qhq.xf7dkkf.x1iorvi4')?.[0]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[3]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div > div > div > span > div')?.[2]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('div > div > span > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl')?.[2]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('span[dir="auto"].x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u.x1yc453h')?.[0]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelectorAll('.x78zum5.xdt5ytf.xz62fqu.x16ldp7u')?.[1]?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelector('.x6s0dn4.x78zum5.xdt5ytf.x5yr21d.xl56j7k.x10l6tqk.x17qophe.x13vifvy.xh8yej3')?.textContent
+        if (!textContent) textContent = elementArr[i]?.querySelector('div.x9f619.x2lah0s.x1n2onr6.x78zum5.x1iyjqo2.x1t2pt76.x1lspesw > div > div > div > div > div > div:nth-child(5) > div > div > div > div > div > div > div > div > div > div > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl > div > div > div:nth-child(3) > div > div > div > div')?.textContent
+        const textAccount = elementArr[i]?.querySelector('.html-h3')?.textContent || elementArr[i]?.querySelector('.html-strong')?.textContent || '0'
+        const textIdAccount = elementArr[i]?.querySelector('.html-h3 a')?.href?.split('/')?.[6] || elementArr[i]?.querySelector('.xjp7ctv > a')?.href?.split('/')?.[6] || ''
+        const urlAvatar = elementArr[i]?.querySelector('g > image')?.href?.baseVal || ''
+        await delay(1000)
+
+        const elementUrlContent = elementArr[i]?.querySelector('div > span:nth-child(1) > span > a')
+        let textUrlContent = ''
+        if (elementUrlContent) {
+          await elementUrlContent?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await delay(1000)
+          await elementUrlContent?.focus()
+          textUrlContent = (elementUrlContent?.href?.split('?')[0].includes('/search') ? elementUrlContent?.href?.split('?')[0].replace('/search', '') : elementUrlContent?.href?.split('?')[0])
+        }
+        // console.log('textUrlContent: ', textUrlContent)
+
+        if (textContent) {
+          data.push({ content: textContent, account: textAccount, accountId: textIdAccount })
+        }
+        console.log('data: ', i, data)
+
+        if (elementArr.length < 150) {
+          await delay(2000)
+          elementArr = documentPage?.querySelectorAll('.x78zum5.xdt5ytf[data-virtualized="false"]')
+          console.log('Length of page array: ', elementArr.length)
+        } else {
+          break
+        }
+      }
+
       return data
     } catch (error) {
       console.log('Error scraping data from browser: ', error)
