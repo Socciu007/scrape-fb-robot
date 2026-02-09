@@ -221,7 +221,7 @@ async function main() {
           }
           console.log('urlAccess: ', urlAccess)
           if (!urlAccess.includes('https://www.facebook.com')) continue;
-          await window2.loadURL(`${urlAccess.replace(/\/$/, "")}/search/?q=link%20whatsapp%20group`) ///search/?q=zalo
+          await window2.loadURL(`${urlAccess.replace(/\/$/, "")}/search/?q=whatsapp%20group`) ///search/?q=zalo
           await delay(5000)
 
           // Scrape data from browser

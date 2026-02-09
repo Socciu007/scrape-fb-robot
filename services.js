@@ -114,7 +114,7 @@ const serviceGemini = async (dataCrawl, typeUse) => {
       };
     } else if (typeUse === 'whatsapp') {
       prompt = {
-        content: `Trích xuất ra đường link whatsapp từ nội dung: ${JSON.stringify(dataCrawl)}. Trả về định dạng mảng các đường link whatsapp.`
+        content: `Trích xuất ra đường link nhóm whatsapp từ nội dung: ${JSON.stringify(dataCrawl)}. Trả về định dạng mảng các đường link whatsapp.`
       };
     }
 
