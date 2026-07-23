@@ -71,6 +71,18 @@ const saveDataToDatabase = async (data) => {
   }
 }
 
+// Call api to save data to database (ebvn2)
+const saveMemberToVn2 = async (data) => {
+  try {
+    // http://localhost:3000/moneyapi/saveDataFacebook
+    // https://vn2.dadaex.cn/api/moneyapi/saveDataFacebook
+    const response = await axios.post('https://vn2.dadaex.cn/api/moneyapi/memberFb', { ...data });
+    return response?.data;
+  } catch (error) {
+    console.log('Error saving data to database: ', error);
+    return false;
+  }
+}
 
 const typeData = `{ 
   content: string,
@@ -143,5 +155,6 @@ module.exports = {
   fetchGroupData,
   saveDataToDatabase,
   serviceGemini,
-  saveDataWhatsapp
+  saveDataWhatsapp,
+  saveMemberToVn2
 }

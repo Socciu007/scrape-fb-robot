@@ -3,7 +3,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = requ
 const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
-const { saveDataFb, fetchGroupData, saveDataWhatsapp, serviceGemini } = require('./services');
+const { saveDataFb, fetchGroupData, saveDataWhatsapp, serviceGemini, saveMemberToVn2 } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
 const groupFb = require('./mock/groupFb');
 let PORT_LIST = [
@@ -184,6 +184,12 @@ async function main() {
       // Scrape data from browser
       const data = await wd1.webContents.executeJavaScript(scrapeMemberGroupPage())
       console.log('Member group page: ', data)
+      if (!!data?.length) {
+        for (const item of data) {
+          const responseSave = await saveMemberToVn2({ ...item })
+          console.log('Save member to vn2: ', responseSave)
+        }
+      }
     }
 
     // Task 2: Crawl data from group page
@@ -255,12 +261,13 @@ async function main() {
         }
         page++
       }
-      
+
       // Close the window
       await window2.close()
     }
 
-    await Promise.all([runTaskMain(), task2(data[0].account)]) //runTask1
+    // await task1(data[0].account)
+    await Promise.all([runTaskMain(), task1(data[0].account)]) //runTask1
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -423,22 +430,102 @@ async function checkQRCodeFromUrl(imageUrl) {
   }
 }
 
-// Function to scrape the data from the browser (group page with keyword='zalo')
+// Function to scrape the data from the browser (members of a group)
 const scrapeMemberGroupPage = () => {
   return `(async () => {
-  const delay = async (time) => {
-    await new Promise(resolve => setTimeout(resolve, time));
-  }
-  try {
-    await delay(1000)
-    let documentPage = document?.querySelector('[role="list"].html-div.x14z9mp.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl.x1oo3vh0.x1rdy4ex')
+    const delay = async (time) => {
+      await new Promise(resolve => setTimeout(resolve, time));
+    }
+    try {
+      await delay(1000)
+      const documentPage = document?.querySelector('[role="list"].html-div')
+      if (!documentPage) return []
 
-    return data
-  } catch (error) {
-    console.log('Error scraping data from browser: ', error)
-    return []
-  }
-})()`
+      let listItems = documentPage?.querySelectorAll('[role="listitem"]')
+      if (!listItems || !listItems.length) return []
+      console.log('Initial listItems: ', listItems.length)
+
+      let data = []
+      const idSet = new Set()
+
+      for (let i = 0; i < listItems.length; i++) {
+        await delay(500)
+        const item = listItems[i]
+
+        // Scroll the item into view to make sure it is rendered
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+        // Get the avatar profile link (first .xjp7ctv > a inside .xt0psk2)
+        const avatarLink = item?.querySelector('.xt0psk2 .xjp7ctv > a')
+        const profileLink = avatarLink?.href || ''
+
+        // Extract idAccount from URL pattern /groups/{groupId}/user/{userId}/
+        const parts = profileLink.split('/user/')
+        const idAccount = (parts[1] || '').split('/')[0].trim()
+        if (!idAccount || idSet.has(idAccount)) {
+          // Re-query the list to capture lazy-loaded items
+          if (listItems.length < 200) {
+            await delay(2000)
+            listItems = documentPage?.querySelectorAll('[role="listitem"]')
+          }
+          continue
+        }
+        idSet.add(idAccount)
+
+        // Build full Facebook URL
+        const urlFacebook = 'https://www.facebook.com/' + idAccount
+
+        // Get the user name (account) - look for a link that is not the avatar link
+        const allLinks = item?.querySelectorAll('.xjp7ctv > a')
+        let account = ''
+        for (const link of (allLinks || [])) {
+          if (link !== avatarLink) {
+            account = (link?.textContent || '').trim()
+            if (account) break
+          }
+        }
+        // Fallback to .html-h3 (commonly used for member names)
+        if (!account) account = (item?.querySelector('.html-h3')?.textContent || '').trim()
+        // Fallback to profile_name data attribute
+        if (!account) account = (item?.querySelector('[data-ad-rendering-role="profile_name"]')?.textContent || '').trim()
+
+        // Get the avatar image URL
+        // 1. SVG <image> element (Facebook masked avatars)
+        let urlImage = item?.querySelector('g > image')?.href?.baseVal || ''
+        // 2. <img> tag
+        if (!urlImage) urlImage = item?.querySelector('img')?.src || ''
+        // 3. CSS background-image style
+        if (!urlImage) {
+          const bgElement = item?.querySelector('[style*="background-image"]')
+          if (bgElement) {
+            const style = bgElement.getAttribute('style') || ''
+            const match = style.match(/url\\(([^)]+)\\)/)
+            if (match && match[1]) {
+              urlImage = match[1].replace(/^["']|["']$/g, '')
+            }
+          }
+        }
+
+        data.push({ idAccount, account, urlAvatar: urlImage, urlFacebook, group: 'LOGISTICS VIETNAM' })
+        console.log('data member group page: ', data)
+
+        // Lazy load: re-query to capture items that were rendered after scrolling
+        if (listItems.length < 1000) {
+          await delay(2000)
+          listItems = documentPage?.querySelectorAll('[role="listitem"]')
+          console.log('Updated listItems length: ', listItems.length)
+        } else {
+          break
+        }
+      }
+
+      console.log('Members data length: ', data.length)
+      return data
+    } catch (error) {
+      console.log('Error scraping member data: ', error)
+      return []
+    }
+  })()`
 }
 
 // Function to scrape the data from the browser (group page)
@@ -734,7 +821,7 @@ const scrapeDataFromMessagePage = (accountCrawl) => {
 // code. You can also put them in separate files and require them here.
 ipcMain.handle('data-chat', async (event, data) => {
   if (data?.length > 0) {
-    
+
     const { v4: uuidv4 } = await import('uuid');
     let ipAddress = ''
     const interfaces = os.networkInterfaces();
