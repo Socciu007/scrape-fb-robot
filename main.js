@@ -510,7 +510,7 @@ const scrapeMemberGroupPage = () => {
         console.log('data member group page: ', data)
 
         // Lazy load: re-query to capture items that were rendered after scrolling
-        if (listItems.length < 1000) {
+        if (listItems.length < 10000) {
           await delay(2000)
           listItems = documentPage?.querySelectorAll('[role="listitem"]')
           console.log('Updated listItems length: ', listItems.length)
