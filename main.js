@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, session } = requ
 const path = require('node:path')
 const jsQR = require('jsqr');
 const os = require('os');
+const axios = require('axios');
 const { saveDataFb, fetchGroupData, saveDataWhatsapp, serviceGemini, saveMemberToVn2 } = require('./services');
 const { timeTaskScrapeFb } = require('./cron');
 const groupFb = require('./mock/groupFb');
@@ -164,7 +165,7 @@ async function main() {
       await mainWindow.close()
     };
 
-    const task1 = async (account) => {
+    const task1 = async (account, p) => {
       const wd1 = await createWindow({ width: 1200, height: 600, x: 0, y: 200, sessionName: account })
       if (!wd1) return;
       // Load the url of the facebook (Login FB)
@@ -178,6 +179,15 @@ async function main() {
         return
       };
 
+      if (p) {
+        for (let i = 1; i <= p; i++) {
+          const data = await getInfoMember(wd1, i)
+          console.log('Data: ', data)
+        }
+        await wd1.close()
+        return
+      }
+
       await wd1.loadURL('https://www.facebook.com/groups/1791293174699616/members/things_in_common')
       await delay(5000)
 
@@ -190,6 +200,7 @@ async function main() {
           console.log('Save member to vn2: ', responseSave)
         }
       }
+      await wd1.close()
     }
 
     // Task 2: Crawl data from group page
@@ -376,6 +387,93 @@ const checkLoginFacebook = `(async () => {
     return false
   }
 })()`
+
+// Get Info contact us data
+const getInfoMember = async (wd1, p) => {
+  try {
+    const memberDb = await axios.get(`https://vn2.dadaex.cn/api/moneyapi/memberFb?page=${p}`)
+    const rows = memberDb?.data?.data?.rows || []
+    if (!rows.length) return []
+
+    const results = []
+
+    for (const item of rows) {
+      if (!item?.idAccount) continue
+
+      await wd1.loadURL(`https://www.facebook.com/${item?.idAccount}`)
+      await delay(3000)
+
+      // Scrape data from browser
+      const scraped = await wd1.webContents.executeJavaScript(`(async () => {
+        const delay = (t) => new Promise(r => setTimeout(r, t))
+        await delay(1000)
+
+        // Chuẩn hóa SĐT Việt Nam: bỏ ký tự phân cách, chuyển +84xxx → 0xxx
+        const normalize = (raw) => {
+          const digits = String(raw || '').replace(/\\D/g, '')
+          if (digits.startsWith('84') && digits.length === 11) {
+            return '0' + digits.slice(2)
+          }
+          return digits
+        }
+
+        // Regex có word-boundary, không match nhầm chuỗi số dài
+        const phoneRegex = /\\b(?:\\+?84|0)\\d(?:[\\s.-]?\\d){8,9}\\b/g
+        const phones = new Set()
+
+        const extractPhones = (text) => {
+          if (!text) return
+          const matches = text.match(phoneRegex)
+          if (!matches) return
+          matches.forEach(m => {
+            const n = normalize(m)
+            // Chỉ nhận SĐT Việt Nam hợp lệ (10-11 số)
+            if (n.length >= 10 && n.length <= 11) phones.add(n)
+          })
+        }
+
+        // 1) Trích SĐT từ phần header/bio của profile (dùng role="main" thay vì class Facebook dễ vỡ)
+        const profileMain = document?.querySelector('.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.xeuugli.x1r8uery.x1iyjqo2.xs83m0k.xf7dkkf.xv54qhq.xqdwrps.x16i7wwg.x1y5dvz6')
+        if (profileMain) extractPhones(profileMain.textContent)
+
+        // 2) Chỉ trích SĐT từ post đầu tiên)
+        const feed = document?.querySelector('[role="feed"]')
+        if (feed) {
+          const post = feed.querySelector('[data-ad-rendering-role="story_message"]')
+          // Click "See more" / "Xem thêm" bằng textContent chính xác thay vì nút đầu tiên
+          const buttons = post.querySelectorAll('[role="button"]')
+          for (const btn of buttons) {
+            const text = (btn.textContent || '').toLowerCase()
+            if (text.includes('see more') || text.includes('xem thêm')) {
+              try { btn.click() } catch (e) {}
+              await delay(500)
+              break
+            }
+          }
+          extractPhones(post.textContent)
+        }
+
+        return Array.from(phones)
+      })()`)
+
+      console.log('Member group page: ', scraped)
+      if (!scraped.length) continue
+      const responseSave = await saveMemberToVn2({
+        ...item,
+        contactUs: scraped.join(', '),
+        zalo: scraped[0],
+        content: scraped.join(', '),
+      })
+      console.log('Save member to vn2: ', responseSave)
+      results.push({ idAccount: item.idAccount, contactUs: scraped, responseSave })
+    }
+
+    return results
+  } catch (error) {
+    console.log('Error getting info member: ', error)
+    return []
+  }
+}
 
 // Execute action on the app browser
 async function executeAction(action, delayTime = 1000) {
