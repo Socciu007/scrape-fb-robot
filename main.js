@@ -178,9 +178,11 @@ async function main() {
         await wd1.close()
         return
       };
+      console.log('p: ', p)
 
       if (p) {
-        for (let i = 1; i <= p; i++) {
+        for (let i = 30; i <= p; i++) {
+          console.log('Get info member of page: ', i)
           const data = await getInfoMember(wd1, i)
           console.log('Data: ', data)
         }
@@ -278,7 +280,7 @@ async function main() {
     }
 
     // await task1(data[0].account)
-    await Promise.all([runTaskMain(), task1(data[0].account)]) //runTask1
+    await Promise.all([runTaskMain(), task1(data[0].account, 1000)]) //runTask1
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -401,7 +403,7 @@ const getInfoMember = async (wd1, p) => {
       if (!item?.idAccount) continue
 
       await wd1.loadURL(`https://www.facebook.com/${item?.idAccount}`)
-      await delay(3000)
+      await delay(5000)
 
       // Scrape data from browser
       const scraped = await wd1.webContents.executeJavaScript(`(async () => {
@@ -418,14 +420,15 @@ const getInfoMember = async (wd1, p) => {
         }
 
         // Regex có word-boundary, không match nhầm chuỗi số dài
-        const phoneRegex = /\\b(?:\\+?84|0)\\d(?:[\\s.-]?\\d){8,9}\\b/g
+        const phoneRegex = /(?<!\\d)(?:\\+84|0)(?:[\\s.-]?\\d){9,10}(?!\\d)/g
         const phones = new Set()
 
         const extractPhones = (text) => {
           if (!text) return
           const matches = text.match(phoneRegex)
+          console.log('matches: ', matches)
           if (!matches) return
-          matches.forEach(m => {
+          matches?.forEach(m => {
             const n = normalize(m)
             // Chỉ nhận SĐT Việt Nam hợp lệ (10-11 số)
             if (n.length >= 10 && n.length <= 11) phones.add(n)
@@ -434,23 +437,26 @@ const getInfoMember = async (wd1, p) => {
 
         // 1) Trích SĐT từ phần header/bio của profile (dùng role="main" thay vì class Facebook dễ vỡ)
         const profileMain = document?.querySelector('.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.xeuugli.x1r8uery.x1iyjqo2.xs83m0k.xf7dkkf.xv54qhq.xqdwrps.x16i7wwg.x1y5dvz6')
+        console.log('profileMain: ', profileMain?.textContent)
         if (profileMain) extractPhones(profileMain.textContent)
 
         // 2) Chỉ trích SĐT từ post đầu tiên)
-        const feed = document?.querySelector('[role="feed"]')
+        const feed = document?.querySelector('[role="feed"]') ||
+          document?.querySelector('div.x9f619.x1n2onr6.x1ja2u2z.xeuugli.xs83m0k.xjl7jj.x1xmf6yo.x1xegmmw.x1e56ztr.x13fj5qh.x19h7ccj.xu9j1y6.x7ep2pv > div:nth-child(2)')
+        console.log('feed: ', feed)
         if (feed) {
-          const post = feed.querySelector('[data-ad-rendering-role="story_message"]')
-          // Click "See more" / "Xem thêm" bằng textContent chính xác thay vì nút đầu tiên
-          const buttons = post.querySelectorAll('[role="button"]')
-          for (const btn of buttons) {
-            const text = (btn.textContent || '').toLowerCase()
-            if (text.includes('see more') || text.includes('xem thêm')) {
-              try { btn.click() } catch (e) {}
-              await delay(500)
-              break
-            }
+          const post = feed?.querySelector('[data-ad-rendering-role="story_message"]') ||
+            feed?.querySelector('[class="x78zum5 xdt5ytf"]')
+          console.log('post: ', post)
+          const button = post?.querySelector('[role="button"]')
+          if (button) {
+            button.click()
+            await delay(500)
           }
-          extractPhones(post.textContent)
+          if (post) {
+            extractPhones(post.textContent)
+          }
+          await delay(10000)
         }
 
         return Array.from(phones)
@@ -460,9 +466,9 @@ const getInfoMember = async (wd1, p) => {
       if (!scraped.length) continue
       const responseSave = await saveMemberToVn2({
         ...item,
-        contactUs: scraped.join(', '),
+        contactUs: scraped.length > 1 ? scraped.join(', ') : scraped[0],
         zalo: scraped[0],
-        content: scraped.join(', '),
+        content: scraped.length > 1 ? scraped.join(', ') : scraped[0],
       })
       console.log('Save member to vn2: ', responseSave)
       results.push({ idAccount: item.idAccount, contactUs: scraped, responseSave })
