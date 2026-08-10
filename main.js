@@ -181,7 +181,7 @@ async function main() {
       console.log('p: ', p)
 
       if (p) {
-        for (let i = 30; i <= p; i++) {
+        for (let i = 0; i <= p; i++) {
           console.log('Get info member of page: ', i)
           const data = await getInfoMember(wd1, i)
           console.log('Data: ', data)
@@ -190,7 +190,7 @@ async function main() {
         return
       }
 
-      await wd1.loadURL('https://www.facebook.com/groups/1791293174699616/members/things_in_common')
+      await wd1.loadURL('https://www.facebook.com/groups/1791293174699616/members') // things_in_common
       await delay(5000)
 
       // Scrape data from browser
@@ -202,7 +202,7 @@ async function main() {
           console.log('Save member to vn2: ', responseSave)
         }
       }
-      await wd1.close()
+      // await wd1.close()
     }
 
     // Task 2: Crawl data from group page
@@ -280,7 +280,7 @@ async function main() {
     }
 
     // await task1(data[0].account)
-    await Promise.all([runTaskMain(), task1(data[0].account, 1000)]) //runTask1
+    await Promise.all([runTaskMain(), task1(data[0].account)]) //runTask1
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -456,7 +456,7 @@ const getInfoMember = async (wd1, p) => {
           if (post) {
             extractPhones(post.textContent)
           }
-          await delay(10000)
+          await delay(5000)
         }
 
         return Array.from(phones)
@@ -542,7 +542,8 @@ const scrapeMemberGroupPage = () => {
     }
     try {
       await delay(1000)
-      const documentPage = document?.querySelector('[role="list"].html-div')
+      const documentPage = document?.querySelectorAll('[role="list"].html-div')[4]
+      // const documentPage = document?.querySelector('[role="list"]')
       if (!documentPage) return []
 
       let listItems = documentPage?.querySelectorAll('[role="listitem"]')
@@ -614,7 +615,7 @@ const scrapeMemberGroupPage = () => {
         console.log('data member group page: ', data)
 
         // Lazy load: re-query to capture items that were rendered after scrolling
-        if (listItems.length < 10000) {
+        if (listItems.length < 25000) {
           await delay(2000)
           listItems = documentPage?.querySelectorAll('[role="listitem"]')
           console.log('Updated listItems length: ', listItems.length)
