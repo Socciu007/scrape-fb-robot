@@ -181,7 +181,7 @@ async function main() {
       console.log('p: ', p)
 
       if (p) {
-        for (let i = 0; i <= p; i++) {
+        for (let i = 1; i <= p; i++) {
           console.log('Get info member of page: ', i)
           const data = await getInfoMember(wd1, i)
           console.log('Data: ', data)
@@ -280,7 +280,7 @@ async function main() {
     }
 
     // await task1(data[0].account)
-    await Promise.all([runTaskMain(), task1(data[0].account)]) //runTask1
+    await Promise.all([runTaskMain(), task1(data[0].account, 1228)]) //runTask1
   });
 
   // Open the DevTools. (Ctr + Shift + I)
@@ -436,9 +436,10 @@ const getInfoMember = async (wd1, p) => {
         }
 
         // 1) Trích SĐT từ phần header/bio của profile (dùng role="main" thay vì class Facebook dễ vỡ)
+        const content = ''
         const profileMain = document?.querySelector('.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.xeuugli.x1r8uery.x1iyjqo2.xs83m0k.xf7dkkf.xv54qhq.xqdwrps.x16i7wwg.x1y5dvz6')
         console.log('profileMain: ', profileMain?.textContent)
-        if (profileMain) extractPhones(profileMain.textContent)
+        if (profileMain && profileMain.textContent) content += profileMain.textContent + '\n'
 
         // 2) Chỉ trích SĐT từ post đầu tiên)
         const feed = document?.querySelector('[role="feed"]') ||
@@ -453,25 +454,26 @@ const getInfoMember = async (wd1, p) => {
             button.click()
             await delay(500)
           }
-          if (post) {
-            extractPhones(post.textContent)
-          }
-          await delay(5000)
+          if (post && post.textContent) content += post.textContent + '\n'
+          await delay(3000)
         }
 
-        return Array.from(phones)
+        return content
       })()`)
 
       console.log('Member group page: ', scraped)
-      if (!scraped.length) continue
+      if (!scraped) continue
+      const responseGemini = await serviceGemini(scraped, 'scrapeCompany')
+      if (!responseGemini) continue
       const responseSave = await saveMemberToVn2({
         ...item,
-        contactUs: scraped.length > 1 ? scraped.join(', ') : scraped[0],
-        zalo: scraped[0],
-        content: scraped.length > 1 ? scraped.join(', ') : scraped[0],
+        contactUs: responseGemini.contactUs || '',
+        zalo: responseGemini.zalo || '',
+        content: scraped,
+        company: responseGemini.company || '',
       })
       console.log('Save member to vn2: ', responseSave)
-      results.push({ idAccount: item.idAccount, contactUs: scraped, responseSave })
+      results.push({ idAccount: item.idAccount, contactUs: responseGemini.contactUs || '', zalo: responseGemini.zalo || '', company: responseGemini.company || '', content: scraped, responseSave })
     }
 
     return results
@@ -543,7 +545,7 @@ const scrapeMemberGroupPage = () => {
     try {
       await delay(1000)
       const documentPage = document?.querySelectorAll('[role="list"].html-div')[4]
-      // const documentPage = document?.querySelector('[role="list"]')
+      // const documentPage = document?.querySelectorAll('[role="list"]')[2]
       if (!documentPage) return []
 
       let listItems = documentPage?.querySelectorAll('[role="listitem"]')
@@ -569,7 +571,7 @@ const scrapeMemberGroupPage = () => {
         const idAccount = (parts[1] || '').split('/')[0].trim()
         if (!idAccount || idSet.has(idAccount)) {
           // Re-query the list to capture lazy-loaded items
-          if (listItems.length < 200) {
+          if (listItems.length < 2000) {
             await delay(2000)
             listItems = documentPage?.querySelectorAll('[role="listitem"]')
           }
@@ -616,7 +618,7 @@ const scrapeMemberGroupPage = () => {
 
         // Lazy load: re-query to capture items that were rendered after scrolling
         if (listItems.length < 25000) {
-          await delay(2000)
+          await delay(5000)
           listItems = documentPage?.querySelectorAll('[role="listitem"]')
           console.log('Updated listItems length: ', listItems.length)
         } else {

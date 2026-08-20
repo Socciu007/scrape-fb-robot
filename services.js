@@ -128,12 +128,16 @@ const serviceGemini = async (dataCrawl, typeUse) => {
       prompt = {
         content: `Trích xuất ra đường link nhóm whatsapp từ nội dung: ${JSON.stringify(dataCrawl)}. Trả về định dạng mảng các đường link whatsapp.`
       };
+    } else if (typeUse === 'scrapeCompany') {
+      prompt = {
+        content: `${JSON.stringify(dataCrawl)}. Lấy các thông tin (nếu có) về số điện thoại, zalo, công ty; Trả về định dạng {contactUs: string, zalo: string, company: string}.`
+      };
     }
 
     const result = await axios.post('http://ai.dadaex.cn/backapi/chatGpt/chatAll', {
       content: prompt.content,
       modelType: '2',
-      modeName: 'gemini-2.5-flash'
+      modeName: 'gemini-3.5-flash'
     });
     const objData = result?.data?.data?.res1?.kwargs?.content;
     let cleanObjData = null;
