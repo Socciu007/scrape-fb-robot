@@ -181,7 +181,7 @@ async function main() {
       console.log('p: ', p)
 
       if (p) {
-        for (let i = 1; i <= p; i++) {
+        for (let i = 6; i <= p; i++) {
           console.log('Get info member of page: ', i)
           const data = await getInfoMember(wd1, i)
           console.log('Data: ', data)
@@ -410,52 +410,48 @@ const getInfoMember = async (wd1, p) => {
         const delay = (t) => new Promise(r => setTimeout(r, t))
         await delay(1000)
 
-        // Chuẩn hóa SĐT Việt Nam: bỏ ký tự phân cách, chuyển +84xxx → 0xxx
-        const normalize = (raw) => {
-          const digits = String(raw || '').replace(/\\D/g, '')
-          if (digits.startsWith('84') && digits.length === 11) {
-            return '0' + digits.slice(2)
+        let content = ''
+
+        try {
+          // 1) Trích text từ phần header/bio của profile
+          const profileMain = document?.querySelector('.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.xeuugli.x1r8uery.x1iyjqo2.xs83m0k.xf7dkkf.xv54qhq.xqdwrps.x16i7wwg.x1y5dvz6')
+          if (profileMain && profileMain.textContent) {
+            content += profileMain.textContent + '\\n'
           }
-          return digits
-        }
 
-        // Regex có word-boundary, không match nhầm chuỗi số dài
-        const phoneRegex = /(?<!\\d)(?:\\+84|0)(?:[\\s.-]?\\d){9,10}(?!\\d)/g
-        const phones = new Set()
+          // 2) Trích text từ post đầu tiên trong feed
+          let feed = null
+          try {
+            feed = document?.querySelector('[role="feed"]') ||
+              document?.querySelector('div.x9f619.x1n2onr6.x1ja2u2z.xeuugli.xs83m0k.xjl7jj.x1xmf6yo.x1xegmmw.x1e56ztr.x13fj5qh.x19h7ccj.xu9j1y6.x7ep2pv > div:nth-child(2)')
+          } catch (e) { feed = null }
 
-        const extractPhones = (text) => {
-          if (!text) return
-          const matches = text.match(phoneRegex)
-          console.log('matches: ', matches)
-          if (!matches) return
-          matches?.forEach(m => {
-            const n = normalize(m)
-            // Chỉ nhận SĐT Việt Nam hợp lệ (10-11 số)
-            if (n.length >= 10 && n.length <= 11) phones.add(n)
-          })
-        }
+          if (feed) {
+            let post = null
+            try {
+              post = feed.querySelector('[data-ad-rendering-role="story_message"]') ||
+                feed.querySelector('.x78zum5.xdt5ytf')
+            } catch (e) { post = null }
 
-        // 1) Trích SĐT từ phần header/bio của profile (dùng role="main" thay vì class Facebook dễ vỡ)
-        const content = ''
-        const profileMain = document?.querySelector('.x9f619.x1n2onr6.x1ja2u2z.x78zum5.xdt5ytf.xeuugli.x1r8uery.x1iyjqo2.xs83m0k.xf7dkkf.xv54qhq.xqdwrps.x16i7wwg.x1y5dvz6')
-        console.log('profileMain: ', profileMain?.textContent)
-        if (profileMain && profileMain.textContent) content += profileMain.textContent + '\n'
+            if (post) {
+              // Click "See more" / expand button (wrapped in try-catch để không crash nếu button lỗi)
+              try {
+                const button = post.querySelector('[role="button"]')
+                if (button) {
+                  try { button.click() } catch (e) {}
+                  await delay(500)
+                }
+              } catch (e) {}
 
-        // 2) Chỉ trích SĐT từ post đầu tiên)
-        const feed = document?.querySelector('[role="feed"]') ||
-          document?.querySelector('div.x9f619.x1n2onr6.x1ja2u2z.xeuugli.xs83m0k.xjl7jj.x1xmf6yo.x1xegmmw.x1e56ztr.x13fj5qh.x19h7ccj.xu9j1y6.x7ep2pv > div:nth-child(2)')
-        console.log('feed: ', feed)
-        if (feed) {
-          const post = feed?.querySelector('[data-ad-rendering-role="story_message"]') ||
-            feed?.querySelector('[class="x78zum5 xdt5ytf"]')
-          console.log('post: ', post)
-          const button = post?.querySelector('[role="button"]')
-          if (button) {
-            button.click()
-            await delay(500)
+              if (post.textContent) {
+                content += post.textContent + '\\n'
+              }
+            }
+
+            try { await delay(3000) } catch (e) {}
           }
-          if (post && post.textContent) content += post.textContent + '\n'
-          await delay(3000)
+        } catch (e) {
+          console.error('Error in scrape script:', e)
         }
 
         return content
@@ -464,7 +460,7 @@ const getInfoMember = async (wd1, p) => {
       console.log('Member group page: ', scraped)
       if (!scraped) continue
       const responseGemini = await serviceGemini(scraped, 'scrapeCompany')
-      if (!responseGemini) continue
+      if (!responseGemini || (!responseGemini.contactUs && !responseGemini.zalo && !responseGemini.company)) continue
       const responseSave = await saveMemberToVn2({
         ...item,
         contactUs: responseGemini.contactUs || '',
