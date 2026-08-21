@@ -181,7 +181,7 @@ async function main() {
       console.log('p: ', p)
 
       if (p) {
-        for (let i = 6; i <= p; i++) {
+        for (let i = 170; i <= p; i++) {
           console.log('Get info member of page: ', i)
           const data = await getInfoMember(wd1, i)
           console.log('Data: ', data)

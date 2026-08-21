@@ -130,7 +130,7 @@ const serviceGemini = async (dataCrawl, typeUse) => {
       };
     } else if (typeUse === 'scrapeCompany') {
       prompt = {
-        content: `${JSON.stringify(dataCrawl)}. Lấy các thông tin (nếu có) về số điện thoại, zalo, công ty; Trả về định dạng {contactUs: string, zalo: string, company: string}.`
+        content: `${JSON.stringify(dataCrawl)}. Lấy các thông tin (nếu có) đúng định dạng về số điện thoại (có thể phân cách dấu phẩy nếu có nhiều số liên lạc), zalo, công ty làm việc chứ không phải trường học; Trả về định dạng {contactUs: string , zalo: string || null, company: string || null}.`
       };
     }
 
